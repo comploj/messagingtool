@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx vite:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://api.allorigins.win/get?url=https%3A%2F%2Fgoogle.com\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 10 \"https://api.codetabs.com/v1/proxy?quest=https://google.com\")",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" --max-time 10 \"https://api.allorigins.win/get?url=https%3A%2F%2Fexample.com\")",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" --max-time 10 \"https://corsproxy.io/?url=https%3A%2F%2Fexample.com\")",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" --max-time 10 \"https://api.codetabs.com/v1/proxy?quest=https://example.com\")",
+      "Bash(curl -s -L -w \"\\\\n%{http_code}\" --max-time 10 \"https://api.codetabs.com/v1/proxy?quest=https://example.com\")",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" --max-time 10 \"https://thingproxy.freeboard.io/fetch/https://example.com\")"
+    ]
+  }
+}
