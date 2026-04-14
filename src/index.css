@@ -667,40 +667,34 @@ select {
   padding-bottom: 16px;
 }
 .seq-spreadsheet {
-  display: flex;
-  gap: 0;
+  display: grid;
   min-width: fit-content;
 }
-.seq-row-labels {
-  flex-shrink: 0;
-  width: 100px;
+.seq-corner-header {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.seq-row-label {
   position: sticky;
   left: 0;
   z-index: 2;
   background: var(--bg);
-}
-.seq-row-label-header {
-  height: 52px;
-}
-.seq-row-label {
-  height: 160px;
   display: flex;
   align-items: flex-start;
   padding: 12px 8px 0 0;
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-secondary);
-}
-.seq-column {
-  flex-shrink: 0;
-  width: 300px;
-  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 .seq-col-header {
-  height: 52px;
   padding: 10px 12px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  border-left: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -718,12 +712,11 @@ select {
   text-overflow: ellipsis;
 }
 .seq-cell {
-  height: 160px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
+  border-left: 1px solid var(--border);
   cursor: pointer;
   transition: background 0.1s ease;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -740,10 +733,8 @@ select {
   font-size: 0.8rem;
   line-height: 1.5;
   color: var(--text-secondary);
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 6;
-  -webkit-box-orient: vertical;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .seq-cell-filled .seq-cell-text {
   color: var(--text-primary);
@@ -753,6 +744,7 @@ select {
   align-items: center;
   justify-content: center;
   color: var(--border);
+  border-left: 1px solid var(--border);
 }
 
 /* ===== PROMPT VIEWER MODAL ===== */

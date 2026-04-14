@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getApiKey } from '../utils/storage';
-import { scrapeValueProposition, scrapeCompanyInfo, buildVarMap, generateMessage, callClaude } from '../utils/ai';
+import { scrapeValueProposition, scrapeCompanyInfo, buildVarMap, generateMessage, callClaude, generateICP } from '../utils/ai';
 import { useToast } from './Toast';
 
 const emptyLead = {
@@ -30,6 +30,7 @@ export default function Overview({ project, updateProject }) {
   const [pasteModal, setPasteModal] = useState(null); // 'vp' | 'company' | null
   const [pasteText, setPasteText] = useState('');
   const [pasteProcessing, setPasteProcessing] = useState(false);
+  const [generatingICP, setGeneratingICP] = useState(false);
   const toast = useToast();
 
   // Persist lead and selection
@@ -126,6 +127,25 @@ export default function Overview({ project, updateProject }) {
     }
   };
 
+  const handleGenerateICP = async () => {
+    const apiKey = getApiKey();
+    if (!apiKey) { toast.error('Set your Anthropic API key in Settings first'); return; }
+    if (!project.valueProposition) {
+      toast.error('Fill in the value proposition first (scrape or type it manually)');
+      return;
+    }
+    setGeneratingICP(true);
+    try {
+      const icp = await generateICP(project.valueProposition, project.clientName, apiKey);
+      setLead(icp);
+      toast.success('Ideal customer profile generated');
+    } catch (err) {
+      toast.error('ICP generation failed: ' + err.message);
+    } finally {
+      setGeneratingICP(false);
+    }
+  };
+
   const toggleSeq = (id) => {
     setSelectedSeqs((prev) =>
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
@@ -217,7 +237,12 @@ export default function Overview({ project, updateProject }) {
       </div>
 
       <div className="overview-section overview-lead-section">
-        <h3>Lead Information</h3>
+        <div className="vp-header">
+          <h3>Lead Information</h3>
+          <button className="btn btn-secondary btn-sm" onClick={handleGenerateICP} disabled={generatingICP}>
+            {generatingICP ? <><span className="spinner spinner-sm"></span> Generating...</> : 'Generate ICP'}
+          </button>
+        </div>
         <div className="overview-grid" style={{ marginBottom: 0 }}>
           <div>
             <div className="form-row mb-16">

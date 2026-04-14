@@ -82,23 +82,29 @@ export default function Sequences({ project, updateProject }) {
         </div>
       ) : (
         <div className="seq-spreadsheet-wrapper">
-          <div className="seq-spreadsheet">
-            {/* Row labels column */}
-            <div className="seq-row-labels">
-              <div className="seq-col-header seq-row-label-header"></div>
-              {Array.from({ length: maxMessages }, (_, i) => (
-                <div key={i} className="seq-row-label">Message {i + 1}</div>
-              ))}
-            </div>
-
-            {/* Sequence columns */}
+          <div
+            className="seq-spreadsheet"
+            style={{
+              gridTemplateColumns: `100px repeat(${project.sequences.length}, 300px)`,
+              gridTemplateRows: `auto repeat(${maxMessages}, auto)`,
+            }}
+          >
+            {/* Header row */}
+            <div className="seq-corner-header"></div>
             {project.sequences.map((seq) => (
-              <div key={seq.id} className="seq-column">
-                <div className="seq-col-header" onClick={() => setEditingId(seq.id)}>
-                  <span className="seq-col-name">{seq.name}</span>
-                  <span className="text-secondary text-sm">Edit</span>
-                </div>
-                {seq.messages.map((msg, i) => {
+              <div key={seq.id} className="seq-col-header" onClick={() => setEditingId(seq.id)}>
+                <span className="seq-col-name">{seq.name}</span>
+                <span className="text-secondary text-sm">Edit</span>
+              </div>
+            ))}
+
+            {/* Data rows */}
+            {Array.from({ length: maxMessages }, (_, rowIdx) => (
+              <>
+                <div key={`label-${rowIdx}`} className="seq-row-label">Message {rowIdx + 1}</div>
+                {project.sequences.map((seq) => {
+                  const msg = seq.messages[rowIdx];
+                  if (!msg) return <div key={`${seq.id}-empty-${rowIdx}`} className="seq-cell seq-cell-empty">—</div>;
                   const output = outputs[msg.id];
                   return (
                     <div
@@ -118,11 +124,7 @@ export default function Sequences({ project, updateProject }) {
                     </div>
                   );
                 })}
-                {/* Fill empty cells if this seq has fewer messages */}
-                {Array.from({ length: maxMessages - seq.messages.length }, (_, i) => (
-                  <div key={`empty-${i}`} className="seq-cell seq-cell-empty">—</div>
-                ))}
-              </div>
+              </>
             ))}
           </div>
         </div>

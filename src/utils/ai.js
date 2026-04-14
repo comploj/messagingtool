@@ -41,7 +41,16 @@ function stripHtml(html) {
     .slice(0, 6000);
 }
 
-export async function scrapeWebsite(url) {
+function normalizeUrl(url) {
+  let u = url.trim();
+  if (!u.startsWith('http://') && !u.startsWith('https://')) {
+    u = 'https://' + u;
+  }
+  return u;
+}
+
+export async function scrapeWebsite(rawUrl) {
+  const url = normalizeUrl(rawUrl);
   const errors = [];
   for (const proxy of CORS_PROXIES) {
     try {
@@ -62,15 +71,28 @@ export async function scrapeWebsite(url) {
         errors.push('empty response');
         continue;
       }
-      // Detect Cloudflare/bot protection pages
+      // Detect blocked / error / bot protection pages
       const lower = text.toLowerCase();
-      if (
-        lower.includes('cloudflare') && (lower.includes('ray id') || lower.includes('security check')) ||
-        lower.includes('just a moment') && lower.includes('enable javascript') ||
-        lower.includes('captcha') && lower.includes('verify you are human') ||
-        lower.includes('access denied') && lower.includes('bot')
-      ) {
-        errors.push('cloudflare-blocked');
+      const isBlocked =
+        (lower.includes('cloudflare') && (lower.includes('ray id') || lower.includes('security check'))) ||
+        (lower.includes('just a moment') && lower.includes('enable javascript')) ||
+        (lower.includes('captcha') && lower.includes('verify you are human')) ||
+        (lower.includes('access denied') && lower.includes('bot')) ||
+        (lower.includes('403') && lower.includes('are you lost')) ||
+        (lower.includes('403') && text.length < 500) ||
+        (lower.includes('forbidden') && text.length < 500) ||
+        (lower.includes('blocked') && lower.includes('access')) ||
+        (lower.includes('sorry') && lower.includes('blocked') && text.length < 1000) ||
+        (lower.includes('error page') && text.length < 500) ||
+        (lower.includes('restricted access') && text.length < 1000);
+      if (isBlocked) {
+        errors.push('blocked');
+        continue;
+      }
+
+      // Also reject if content is too short to be a real page
+      if (text.length < 200) {
+        errors.push('content too short');
         continue;
       }
       return text;
@@ -183,6 +205,51 @@ ${text}
 Return ONLY the value proposition paragraph, no quotes, no markdown.`;
 
   return await callClaude(prompt, apiKey);
+}
+
+export async function generateICP(valueProposition, clientName, apiKey) {
+  const prompt = `You are a sales strategist. Given the following company's value proposition, generate a realistic **Ideal Customer Profile (ICP)** — a fictional but plausible person at a fictional but realistic company who would be the perfect prospect for this business.
+
+## Our Company
+${clientName ? `Company: ${clientName}` : ''}
+Value Proposition: ${valueProposition}
+
+## Task
+Based on what this company sells and who they serve, create a realistic ideal prospect. The prospect should be:
+- A decision-maker at a company that would genuinely benefit from this offering
+- In an industry and role that makes sense as a buyer
+- At a realistically sized company with a plausible name (NOT a real company — invent one)
+- The person name should be realistic for the company's likely geographic market
+
+Return ONLY a valid JSON object with these exact fields:
+{
+  "firstName": "...",
+  "lastName": "...",
+  "position": "...",
+  "company": "...",
+  "companyWebsite": "https://www.example.com",
+  "companyDescription": "A 2-3 sentence description of what this prospect company does",
+  "companyIndustry": "...",
+  "companySize": "e.g. 50-200 employees",
+  "companyLocation": "City, Country",
+  "location": "City, Country"
+}
+
+Rules:
+1. The prospect company must be FICTIONAL — do not use a real company name
+2. Make the prospect company realistic for the industry
+3. The person's role should be the likely buyer/decision-maker for this type of offering
+4. All fields must be filled — no empty strings
+5. Return ONLY the JSON, no markdown, no explanation`;
+
+  const response = await callClaude(prompt, apiKey);
+  try {
+    return JSON.parse(response);
+  } catch {
+    const match = response.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+    throw new Error('Failed to parse ICP from AI response');
+  }
 }
 
 export function buildVarMap(lead, project) {
