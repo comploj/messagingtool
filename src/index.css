@@ -809,6 +809,10 @@ select {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.seq-delete-btn:hover:not(:disabled) {
+  background: var(--danger);
+  color: #fff;
+}
 .seq-cell-text {
   font-size: 0.8rem;
   line-height: 1.5;

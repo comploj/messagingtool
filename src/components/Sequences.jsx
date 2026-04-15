@@ -20,7 +20,6 @@ export default function Sequences({ project, updateProject }) {
   const [promptModal, setPromptModal] = useState(null); // { message, seqName }
   const [outputs, setOutputs] = useState(() => loadOutputs(project.id));
   const [regeneratingId, setRegeneratingId] = useState(null);
-  const [selectedSeqs, setSelectedSeqs] = useState(new Set());
   const toast = useToast();
   const wrapperRef = useRef(null);
   const stickyScrollRef = useRef(null);
@@ -102,22 +101,6 @@ export default function Sequences({ project, updateProject }) {
     updateProject({ sequences: seqs });
   };
 
-  const toggleSelectSeq = (id) => {
-    setSelectedSeqs((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  const handleDeleteSelected = () => {
-    if (selectedSeqs.size === 0) return;
-    if (!confirm(`Delete ${selectedSeqs.size} selected sequence(s)?`)) return;
-    updateProject({ sequences: project.sequences.filter((s) => !selectedSeqs.has(s.id)) });
-    setSelectedSeqs(new Set());
-    toast.success(`${selectedSeqs.size} sequence(s) deleted`);
-  };
-
   const handleRegenerateSeq = async (seq) => {
     const apiKey = getApiKey();
     if (!apiKey) {
@@ -159,16 +142,9 @@ export default function Sequences({ project, updateProject }) {
     <>
       <div className="flex-between mb-16">
         <h3>{project.sequences.length} Sequences</h3>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {selectedSeqs.size > 0 && (
-            <button className="btn btn-danger btn-sm" onClick={handleDeleteSelected}>
-              Delete ({selectedSeqs.size})
-            </button>
-          )}
-          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-            + Add Sequence
-          </button>
-        </div>
+        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+          + Add Sequence
+        </button>
       </div>
 
       {project.sequences.length === 0 ? (
@@ -192,16 +168,8 @@ export default function Sequences({ project, updateProject }) {
             {/* Header row */}
             <div className="seq-corner-header"></div>
             {project.sequences.map((seq) => (
-              <div key={seq.id} className={`seq-col-header ${selectedSeqs.has(seq.id) ? 'seq-col-selected' : ''}`}>
-                <div className="seq-col-name-row">
-                  <input
-                    type="checkbox"
-                    className="seq-col-checkbox"
-                    checked={selectedSeqs.has(seq.id)}
-                    onChange={() => toggleSelectSeq(seq.id)}
-                  />
-                  <span className="seq-col-name">{seq.name}</span>
-                </div>
+              <div key={seq.id} className="seq-col-header">
+                <span className="seq-col-name">{seq.name}</span>
                 <div className="seq-col-actions">
                   <button
                     className="seq-regen-btn"
@@ -213,6 +181,13 @@ export default function Sequences({ project, updateProject }) {
                       ? <span className="spinner spinner-sm"></span>
                       : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
                     }
+                  </button>
+                  <button
+                    className="seq-regen-btn seq-delete-btn"
+                    title="Delete sequence"
+                    onClick={() => handleDeleteSequence(seq.id)}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                   </button>
                   <span className="text-secondary text-sm seq-edit-link" onClick={() => setEditingId(seq.id)}>Edit</span>
                 </div>
