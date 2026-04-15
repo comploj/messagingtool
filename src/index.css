@@ -732,6 +732,22 @@ select {
 .seq-col-header:hover {
   background: var(--elevated);
 }
+.seq-col-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.seq-col-checkbox {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.seq-col-selected {
+  background: rgba(59, 130, 246, 0.08);
+}
 .seq-col-name {
   font-weight: 600;
   font-size: 0.85rem;

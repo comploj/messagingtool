@@ -20,6 +20,7 @@ export default function Sequences({ project, updateProject }) {
   const [promptModal, setPromptModal] = useState(null); // { message, seqName }
   const [outputs, setOutputs] = useState(() => loadOutputs(project.id));
   const [regeneratingId, setRegeneratingId] = useState(null);
+  const [selectedSeqs, setSelectedSeqs] = useState(new Set());
   const toast = useToast();
   const wrapperRef = useRef(null);
   const stickyScrollRef = useRef(null);
@@ -101,6 +102,22 @@ export default function Sequences({ project, updateProject }) {
     updateProject({ sequences: seqs });
   };
 
+  const toggleSelectSeq = (id) => {
+    setSelectedSeqs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedSeqs.size === 0) return;
+    if (!confirm(`Delete ${selectedSeqs.size} selected sequence(s)?`)) return;
+    updateProject({ sequences: project.sequences.filter((s) => !selectedSeqs.has(s.id)) });
+    setSelectedSeqs(new Set());
+    toast.success(`${selectedSeqs.size} sequence(s) deleted`);
+  };
+
   const handleRegenerateSeq = async (seq) => {
     const apiKey = getApiKey();
     if (!apiKey) {
@@ -142,9 +159,16 @@ export default function Sequences({ project, updateProject }) {
     <>
       <div className="flex-between mb-16">
         <h3>{project.sequences.length} Sequences</h3>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          + Add Sequence
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {selectedSeqs.size > 0 && (
+            <button className="btn btn-danger btn-sm" onClick={handleDeleteSelected}>
+              Delete ({selectedSeqs.size})
+            </button>
+          )}
+          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+            + Add Sequence
+          </button>
+        </div>
       </div>
 
       {project.sequences.length === 0 ? (
@@ -168,8 +192,16 @@ export default function Sequences({ project, updateProject }) {
             {/* Header row */}
             <div className="seq-corner-header"></div>
             {project.sequences.map((seq) => (
-              <div key={seq.id} className="seq-col-header">
-                <span className="seq-col-name">{seq.name}</span>
+              <div key={seq.id} className={`seq-col-header ${selectedSeqs.has(seq.id) ? 'seq-col-selected' : ''}`}>
+                <div className="seq-col-name-row">
+                  <input
+                    type="checkbox"
+                    className="seq-col-checkbox"
+                    checked={selectedSeqs.has(seq.id)}
+                    onChange={() => toggleSelectSeq(seq.id)}
+                  />
+                  <span className="seq-col-name">{seq.name}</span>
+                </div>
                 <div className="seq-col-actions">
                   <button
                     className="seq-regen-btn"
