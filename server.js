@@ -32,7 +32,7 @@ app.get('/api/scrape', async (req, res) => {
 app.use(express.static(join(__dirname, 'dist')));
 
 // SPA fallback — serve index.html for all non-API routes
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
