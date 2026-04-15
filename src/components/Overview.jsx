@@ -57,7 +57,7 @@ export default function Overview({ project, updateProject }) {
     if (!project.clientWebsite) { toast.error('Enter a website URL first'); return; }
     setScraping(true);
     try {
-      const vp = await scrapeValueProposition(project.clientWebsite, apiKey);
+      const vp = await scrapeValueProposition(project.clientWebsite, apiKey, lang);
       updateProject({ valueProposition: vp });
       toast.success('Value proposition extracted');
     } catch (err) {
@@ -75,12 +75,14 @@ export default function Overview({ project, updateProject }) {
     try {
       const text = pasteText.trim().slice(0, 6000);
       if (pasteModal === 'vp') {
-        const prompt = `You are a business analyst. Given the following website text, write a clear and compelling 3-5 sentence value proposition paragraph. Describe what the company does, who they help, and what outcomes they deliver. Write in third person.\n\nWebsite text:\n${text}\n\nReturn ONLY the value proposition paragraph, no quotes, no markdown.`;
+        const langInstr = lang === 'de' ? 'Write the entire response in German.' : 'Write the entire response in English.';
+        const prompt = `You are a business analyst. Given the following website text, write a clear and compelling 3-5 sentence value proposition paragraph. Describe what the company does, who they help, and what outcomes they deliver. Write in third person. ${langInstr}\n\nWebsite text:\n${text}\n\nReturn ONLY the value proposition paragraph, no quotes, no markdown.`;
         const vp = await callClaude(prompt, apiKey);
         updateProject({ valueProposition: vp });
         toast.success('Value proposition extracted');
       } else {
-        const prompt = `You are a data extraction assistant. Given the following website text, extract company information and return ONLY a valid JSON object with these fields:\n- "companyDescription": A 2-3 sentence description of what the company does\n- "industry": The company's industry\n- "size": Estimated company size (e.g. "10-50 employees", "Enterprise", "Startup") — use "Unknown" if not clear\n- "location": Company headquarters location — use "Unknown" if not clear\n- "targetCustomers": Who their target customers are\n- "keyProblems": What key problems they solve\n\nWebsite text:\n${text}\n\nReturn ONLY the JSON object, no markdown, no explanation.`;
+        const langInstr = lang === 'de' ? 'Write ALL field values in German.' : 'Write ALL field values in English.';
+        const prompt = `You are a data extraction assistant. Given the following website text, extract company information and return ONLY a valid JSON object with these fields:\n- "companyDescription": A 2-3 sentence description of what the company does\n- "industry": The company's industry\n- "size": Estimated company size (e.g. "10-50 employees", "Enterprise", "Startup") — use "Unknown" if not clear\n- "location": Company headquarters location — use "Unknown" if not clear\n- "targetCustomers": Who their target customers are\n- "keyProblems": What key problems they solve\n\n${langInstr}\n\nWebsite text:\n${text}\n\nReturn ONLY the JSON object, no markdown, no explanation.`;
         const response = await callClaude(prompt, apiKey);
         let info;
         try { info = JSON.parse(response); } catch {
@@ -112,7 +114,7 @@ export default function Overview({ project, updateProject }) {
     if (!lead.companyWebsite) { toast.error('Enter a company website URL first'); return; }
     setScrapingCompany(true);
     try {
-      const info = await scrapeCompanyInfo(lead.companyWebsite, apiKey);
+      const info = await scrapeCompanyInfo(lead.companyWebsite, apiKey, lang);
       setLead((prev) => ({
         ...prev,
         companyDescription: info.companyDescription || '',
@@ -137,7 +139,7 @@ export default function Overview({ project, updateProject }) {
     }
     setGeneratingICP(true);
     try {
-      const icp = await generateICP(project.valueProposition, project.clientName, apiKey);
+      const icp = await generateICP(project.valueProposition, project.clientName, apiKey, lang);
       setLead(icp);
       toast.success('Ideal customer profile generated');
     } catch (err) {
@@ -200,8 +202,30 @@ export default function Overview({ project, updateProject }) {
 
   const allSelected = selectedSeqs.length === project.sequences.length;
 
+  const lang = project.language || 'en';
+
   return (
     <>
+      <div className="overview-section overview-lang-section mb-16">
+        <div className="vp-header">
+          <h3>Message Language</h3>
+          <div className="lang-toggle">
+            <button
+              className={`btn btn-sm ${lang === 'en' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => handleLanguageSwitch('en')}
+            >
+              English
+            </button>
+            <button
+              className={`btn btn-sm ${lang === 'de' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => handleLanguageSwitch('de')}
+            >
+              Deutsch
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="overview-grid">
         <div className="overview-section">
           <h3>Client Info</h3>
@@ -241,29 +265,6 @@ export default function Overview({ project, updateProject }) {
           </div>
           <textarea className="textarea" rows={4} value={project.valueProposition} onChange={(e) => handleChange('valueProposition', e.target.value)} placeholder="Describe what this company does, who they help, and what outcomes they deliver..." />
         </div>
-      </div>
-
-      <div className="overview-section overview-lang-section">
-        <div className="vp-header">
-          <h3>Message Language</h3>
-          <div className="lang-toggle">
-            <button
-              className={`btn btn-sm ${(project.language || 'en') === 'en' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => handleLanguageSwitch('en')}
-            >
-              English
-            </button>
-            <button
-              className={`btn btn-sm ${(project.language || 'en') === 'de' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => handleLanguageSwitch('de')}
-            >
-              Deutsch
-            </button>
-          </div>
-        </div>
-        <p className="text-secondary text-sm">
-          Switching language will update all sequence prompts and static follow-up messages to the selected language.
-        </p>
       </div>
 
       <div className="overview-section overview-lead-section">

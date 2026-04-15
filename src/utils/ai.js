@@ -118,9 +118,10 @@ export async function searchCompanyInfo(domain) {
   return null;
 }
 
-export async function scrapeCompanyInfo(url, apiKey) {
+export async function scrapeCompanyInfo(url, apiKey, lang = 'en') {
   let text = await scrapeWebsite(url);
   let source = 'website';
+  const langInstr = lang === 'de' ? 'Write ALL field values in German.' : 'Write ALL field values in English.';
 
   // If direct scraping failed, try search engines
   if (!text) {
@@ -140,6 +141,7 @@ export async function scrapeCompanyInfo(url, apiKey) {
 - "targetCustomers": Who their target customers are
 - "keyProblems": What key problems they solve
 
+${langInstr}
 If you don't know the company, make reasonable inferences from the domain name and return "Unknown" for fields you can't determine.
 
 Return ONLY the JSON object, no markdown, no explanation.`;
@@ -162,6 +164,8 @@ Return ONLY the JSON object, no markdown, no explanation.`;
 - "targetCustomers": Who their target customers are
 - "keyProblems": What key problems they solve
 
+${langInstr}
+
 ${source === 'search' ? 'Search results' : 'Website text'}:
 ${text}
 
@@ -177,9 +181,10 @@ Return ONLY the JSON object, no markdown, no explanation.`;
   }
 }
 
-export async function scrapeValueProposition(url, apiKey) {
+export async function scrapeValueProposition(url, apiKey, lang = 'en') {
   let text = await scrapeWebsite(url);
   let source = 'website';
+  const langInstr = lang === 'de' ? 'Write the entire response in German.' : 'Write the entire response in English.';
 
   if (!text) {
     const domain = new URL(url).hostname.replace('www.', '');
@@ -189,7 +194,7 @@ export async function scrapeValueProposition(url, apiKey) {
 
   if (!text) {
     const domain = new URL(url).hostname.replace('www.', '');
-    const prompt = `You are a business analyst. I could not scrape the website ${url} directly. Based on your knowledge of the company "${domain}", write a clear and compelling 3-5 sentence value proposition paragraph. Describe what the company does, who they help, and what outcomes they deliver. Write in third person.
+    const prompt = `You are a business analyst. I could not scrape the website ${url} directly. Based on your knowledge of the company "${domain}", write a clear and compelling 3-5 sentence value proposition paragraph. Describe what the company does, who they help, and what outcomes they deliver. Write in third person. ${langInstr}
 
 If you don't have specific knowledge of this company, make reasonable inferences from the domain name.
 
@@ -197,7 +202,7 @@ Return ONLY the value proposition paragraph, no quotes, no markdown.`;
     return await callClaude(prompt, apiKey);
   }
 
-  const prompt = `You are a business analyst. Given the following ${source === 'search' ? 'search results about a company' : 'website text'}, write a clear and compelling 3-5 sentence value proposition paragraph. Describe what the company does, who they help, and what outcomes they deliver. Write in third person.
+  const prompt = `You are a business analyst. Given the following ${source === 'search' ? 'search results about a company' : 'website text'}, write a clear and compelling 3-5 sentence value proposition paragraph. Describe what the company does, who they help, and what outcomes they deliver. Write in third person. ${langInstr}
 
 ${source === 'search' ? 'Search results' : 'Website text'}:
 ${text}
@@ -207,7 +212,10 @@ Return ONLY the value proposition paragraph, no quotes, no markdown.`;
   return await callClaude(prompt, apiKey);
 }
 
-export async function generateICP(valueProposition, clientName, apiKey) {
+export async function generateICP(valueProposition, clientName, apiKey, lang = 'en') {
+  const langInstr = lang === 'de'
+    ? 'Write ALL field values in German. Use German names realistic for the DACH market. The position/role should be in German (e.g. "Leiter Einkauf" not "Head of Purchasing").'
+    : 'Write ALL field values in English.';
   const prompt = `You are a sales strategist. Given the following company's value proposition, generate a realistic **Ideal Customer Profile (ICP)** — a fictional but plausible person at a fictional but realistic company who would be the perfect prospect for this business.
 
 ## Our Company
@@ -220,6 +228,8 @@ Based on what this company sells and who they serve, create a realistic ideal pr
 - In an industry and role that makes sense as a buyer
 - At a realistically sized company with a plausible name (NOT a real company — invent one)
 - The person name should be realistic for the company's likely geographic market
+
+${langInstr}
 
 Return ONLY a valid JSON object with these exact fields:
 {
