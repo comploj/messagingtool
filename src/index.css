@@ -325,6 +325,15 @@ select {
   background: rgba(245, 158, 11, 0.15);
   color: var(--warning);
 }
+.var-chip-bracket {
+  background: rgba(234, 88, 12, 0.15);
+  color: #ea580c;
+}
+
+/* Generated/dynamic parts in message output */
+.output-generated {
+  color: var(--warning);
+}
 
 /* ===== NAV ===== */
 .nav {
@@ -616,11 +625,18 @@ select {
 }
 
 /* ===== OVERVIEW LEAD & GENERATE ===== */
+.overview-lang-section {
+  margin-top: 20px;
+}
 .overview-lead-section {
   margin-top: 20px;
 }
 .overview-generate-section {
   margin-top: 20px;
+}
+.lang-toggle {
+  display: flex;
+  gap: 4px;
 }
 .scrape-row {
   display: flex;
@@ -662,6 +678,18 @@ select {
 }
 
 /* ===== SEQUENCES SPREADSHEET ===== */
+.seq-sticky-scroll {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.seq-sticky-scroll::-webkit-scrollbar {
+  height: 10px;
+}
 .seq-spreadsheet-wrapper {
   overflow-x: auto;
   padding-bottom: 16px;
@@ -711,6 +739,18 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.seq-col-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.seq-edit-link {
+  cursor: pointer;
+}
+.seq-edit-link:hover {
+  color: var(--text-primary);
+}
 .seq-cell {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
@@ -726,8 +766,32 @@ select {
 }
 .seq-cell-badges {
   display: flex;
+  align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+.seq-regen-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: var(--elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+.seq-regen-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+.seq-regen-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .seq-cell-text {
   font-size: 0.8rem;
@@ -745,6 +809,40 @@ select {
   justify-content: center;
   color: var(--border);
   border-left: 1px solid var(--border);
+}
+
+/* Delay row between messages */
+.seq-delay-label {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--elevated);
+  display: flex;
+  align-items: center;
+  padding: 4px 8px 4px 0;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+.seq-delay-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--elevated);
+  border-bottom: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+.seq-delay-input {
+  width: 60px;
+  padding: 3px 6px;
+  font-size: 0.75rem;
+  text-align: center;
+}
+.seq-delay-unit {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
 }
 
 /* ===== PROMPT VIEWER MODAL ===== */

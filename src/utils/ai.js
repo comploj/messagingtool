@@ -254,6 +254,7 @@ Rules:
 
 export function buildVarMap(lead, project) {
   return {
+    '{Anrede}': lead.anrede || '',
     '{FirstName}': lead.firstName || '',
     '{LastName}': lead.lastName || '',
     '{Position}': lead.position || '',
@@ -286,22 +287,78 @@ export async function generateMessage(message, varMap, apiKey) {
   return await callClaude(resolved, apiKey);
 }
 
-export function highlightVars(template) {
-  // Returns an array of {type: 'text'|'var', value} segments
+// Given a prompt template and the generated output, produce segments
+// marking which parts of the output are static (from template) vs generated (from [...] or {Var} replacements)
+export function diffOutputWithTemplate(template, output, varMap) {
+  if (!template || !output) return [{ type: 'generated', value: output || '' }];
+
+  // Find the message body section (after the --- delimiter)
+  const parts = template.split(/^---$/m);
+  const bodySection = parts.length >= 2 ? parts[1] : template;
+  // Get just the template body (before the next --- or ## Rules)
+  const bodyEnd = bodySection.search(/^---$|^## Rules/m);
+  const body = bodyEnd > 0 ? bodySection.slice(0, bodyEnd) : bodySection;
+
+  // Extract static text fragments from the template body
+  // Remove {Variable} tokens and [...] instruction blocks, keep the rest
+  const staticParts = body
+    .replace(/\{[^}]+\}/g, '\x00')  // mark variable positions
+    .replace(/\[[^\]]+\]/g, '\x00') // mark bracket positions
+    .split('\x00')
+    .map(s => s.trim())
+    .filter(s => s.length > 3); // only meaningful fragments
+
+  if (staticParts.length === 0) return [{ type: 'generated', value: output }];
+
+  // Now find these static fragments in the output and mark everything between as "generated"
   const segments = [];
-  const regex = /(\{[^}]+\})/g;
+  let remaining = output;
+
+  for (const fragment of staticParts) {
+    const idx = remaining.toLowerCase().indexOf(fragment.toLowerCase());
+    if (idx === -1) continue;
+
+    // Everything before the match is generated
+    if (idx > 0) {
+      segments.push({ type: 'generated', value: remaining.slice(0, idx) });
+    }
+    // The match itself is static
+    segments.push({ type: 'static', value: remaining.slice(idx, idx + fragment.length) });
+    remaining = remaining.slice(idx + fragment.length);
+  }
+
+  // Anything left is generated
+  if (remaining.length > 0) {
+    segments.push({ type: 'generated', value: remaining });
+  }
+
+  return segments.length > 0 ? segments : [{ type: 'generated', value: output }];
+}
+
+export function highlightVars(template) {
+  // Returns an array of {type: 'text'|'var'|'bracket', value} segments
+  // Matches both {Variable} tokens and [...] instruction sections
+  const segments = [];
+  const regex = /(\{[^}]+\}|\[[^\]]+\])/g;
   let lastIndex = 0;
   let match;
   while ((match = regex.exec(template)) !== null) {
     if (match.index > lastIndex) {
       segments.push({ type: 'text', value: template.slice(lastIndex, match.index) });
     }
-    const varName = match[1];
-    segments.push({
-      type: 'var',
-      value: varName,
-      isOp: varName.startsWith('{op.'),
-    });
+    const token = match[1];
+    if (token.startsWith('{')) {
+      segments.push({
+        type: 'var',
+        value: token,
+        isOp: token.startsWith('{op.'),
+      });
+    } else {
+      segments.push({
+        type: 'bracket',
+        value: token,
+      });
+    }
     lastIndex = regex.lastIndex;
   }
   if (lastIndex < template.length) {

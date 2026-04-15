@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { getApiKey } from '../utils/storage';
 import { scrapeValueProposition, scrapeCompanyInfo, buildVarMap, generateMessage, callClaude, generateICP } from '../utils/ai';
+import { switchSequenceLanguage } from '../utils/defaults';
 import { useToast } from './Toast';
 
 const emptyLead = {
   firstName: '', lastName: '', position: '', company: '',
   companyWebsite: '', companyDescription: '', companyIndustry: '',
-  companySize: '', companyLocation: '', location: '',
+  companySize: '', companyLocation: '', location: '', anrede: '',
 };
 
 const LEAD_KEY = (id) => `leadhunt_lead_${id}`;
@@ -157,6 +158,12 @@ export default function Overview({ project, updateProject }) {
     setSelectedSeqs(selectedSeqs.length === allIds.length ? [] : allIds);
   };
 
+  const handleLanguageSwitch = (newLang) => {
+    const switched = switchSequenceLanguage(project.sequences, newLang);
+    updateProject({ sequences: switched, language: newLang });
+    toast.success(`Prompts switched to ${newLang === 'de' ? 'German' : 'English'}`);
+  };
+
   const handleGenerate = async () => {
     const apiKey = getApiKey();
     if (!apiKey) { toast.error('Set your Anthropic API key in Settings first'); return; }
@@ -236,6 +243,29 @@ export default function Overview({ project, updateProject }) {
         </div>
       </div>
 
+      <div className="overview-section overview-lang-section">
+        <div className="vp-header">
+          <h3>Message Language</h3>
+          <div className="lang-toggle">
+            <button
+              className={`btn btn-sm ${(project.language || 'en') === 'en' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => handleLanguageSwitch('en')}
+            >
+              English
+            </button>
+            <button
+              className={`btn btn-sm ${(project.language || 'en') === 'de' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => handleLanguageSwitch('de')}
+            >
+              Deutsch
+            </button>
+          </div>
+        </div>
+        <p className="text-secondary text-sm">
+          Switching language will update all sequence prompts and static follow-up messages to the selected language.
+        </p>
+      </div>
+
       <div className="overview-section overview-lead-section">
         <div className="vp-header">
           <h3>Lead Information</h3>
@@ -247,17 +277,29 @@ export default function Overview({ project, updateProject }) {
           <div>
             <div className="form-row mb-16">
               <div className="form-group">
+                <label className="form-label">Salutation / Anrede</label>
+                <select value={lead.anrede} onChange={(e) => updateLead('anrede', e.target.value)}>
+                  <option value="">-- Select --</option>
+                  <option value="Herr">Herr</option>
+                  <option value="Frau">Frau</option>
+                  <option value="Mr.">Mr.</option>
+                  <option value="Ms.">Ms.</option>
+                </select>
+              </div>
+              <div className="form-group">
                 <label className="form-label">First Name</label>
                 <input className="input" value={lead.firstName} onChange={(e) => updateLead('firstName', e.target.value)} placeholder="Jane" />
               </div>
+            </div>
+            <div className="form-row mb-16">
               <div className="form-group">
                 <label className="form-label">Last Name</label>
                 <input className="input" value={lead.lastName} onChange={(e) => updateLead('lastName', e.target.value)} placeholder="Smith" />
               </div>
-            </div>
-            <div className="form-group mb-16">
-              <label className="form-label">Position</label>
-              <input className="input" value={lead.position} onChange={(e) => updateLead('position', e.target.value)} placeholder="VP of Marketing" />
+              <div className="form-group">
+                <label className="form-label">Position</label>
+                <input className="input" value={lead.position} onChange={(e) => updateLead('position', e.target.value)} placeholder="VP of Marketing" />
+              </div>
             </div>
             <div className="form-group mb-16">
               <label className="form-label">Company</label>

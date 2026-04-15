@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 const AVAILABLE_VARS = [
-  '{FirstName}', '{LastName}', '{Position}', '{Company}',
+  '{Anrede}', '{FirstName}', '{LastName}', '{Position}', '{Company}',
   '{CompanyDescription}', '{CompanyIndustry}', '{CompanySize}',
   '{CompanyLocation}', '{PersonLocation}',
   '{MyNameFirst}', '{MyNameLast}', '{op.value_proposition}',
