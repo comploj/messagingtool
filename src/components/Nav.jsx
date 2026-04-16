@@ -7,7 +7,9 @@ export default function Nav({ projectName, onBack, onSettings, onLogout }) {
             &larr; Back
           </button>
         )}
-        <span className="nav-brand">LeadHunt</span>
+        <div className="nav-brand">
+          <img src="/leadhunt-logo.png" alt="LeadHunt" />
+        </div>
         {projectName && (
           <>
             <span className="nav-sep">/</span>

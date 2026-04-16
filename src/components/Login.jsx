@@ -22,7 +22,7 @@ export default function Login({ onLogin }) {
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1>LeadHunt</h1>
+        <img src="/leadhunt-logo.png" alt="LeadHunt" className="login-logo" />
         <p>Enter your access token to continue</p>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
