@@ -50,7 +50,14 @@ export function getProjects() {
 }
 
 export function getProject(id) {
-  return getProjects().find((p) => p.id === id) || null;
+  const project = getProjects().find((p) => p.id === id) || null;
+  if (project && typeof project.valueProposition === 'string') {
+    project.valueProposition = {
+      summary: project.valueProposition,
+      elevatorPitch: '', painPoints: '', usps: '', urgency: '', services: '', benefits: '',
+    };
+  }
+  return project;
 }
 
 export function saveProject(project) {

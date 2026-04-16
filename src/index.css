@@ -589,6 +589,14 @@ select {
   justify-content: space-between;
   margin-bottom: 16px;
 }
+.vp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.vp-grid-full {
+  grid-column: 1 / -1;
+}
 
 /* ===== OVERVIEW LEAD & GENERATE ===== */
 .overview-lang-section {

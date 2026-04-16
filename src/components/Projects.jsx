@@ -20,7 +20,7 @@ export default function Projects({ onSelectProject }) {
       name: name.trim(),
       clientName: clientName.trim(),
       clientWebsite: '',
-      valueProposition: '',
+      valueProposition: { summary: '', elevatorPitch: '', painPoints: '', usps: '', urgency: '', services: '', benefits: '' },
       senderFirstName: '',
       senderLastName: '',
       sequences: createDefaultSequences(),

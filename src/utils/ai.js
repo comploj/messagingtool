@@ -7,7 +7,7 @@ const CORS_PROXIES = [
   { url: (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`, format: 'json' },
 ];
 
-export async function callClaude(prompt, apiKey) {
+export async function callClaude(prompt, apiKey, maxTokens = 1024) {
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
@@ -18,7 +18,7 @@ export async function callClaude(prompt, apiKey) {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 1024,
+      max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
@@ -181,10 +181,30 @@ Return ONLY the JSON object, no markdown, no explanation.`;
   }
 }
 
+const VP_FIELDS_SCHEMA = `{
+  "summary": "1-2 sentence company overview in third person",
+  "elevatorPitch": "30-second pitch in first person plural starting with 'We help...'",
+  "painPoints": "3-5 pain points the target audience faces, as a short paragraph",
+  "usps": "3-5 unique selling propositions that differentiate this company",
+  "urgency": "Why prospects should act now — market timing, cost of inaction, competitive pressure",
+  "services": "Core services or products offered, listed concisely",
+  "benefits": "Concrete outcomes and measurable results clients get"
+}`;
+
+function parseVpJson(response) {
+  try {
+    return JSON.parse(response);
+  } catch {
+    const match = response.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+    throw new Error('Failed to parse value proposition JSON');
+  }
+}
+
 export async function scrapeValueProposition(url, apiKey, lang = 'en') {
   let text = await scrapeWebsite(url);
   let source = 'website';
-  const langInstr = lang === 'de' ? 'Write the entire response in German.' : 'Write the entire response in English.';
+  const langInstr = lang === 'de' ? 'Write ALL field values in German.' : 'Write ALL field values in English.';
 
   if (!text) {
     const domain = new URL(url).hostname.replace('www.', '');
@@ -194,22 +214,37 @@ export async function scrapeValueProposition(url, apiKey, lang = 'en') {
 
   if (!text) {
     const domain = new URL(url).hostname.replace('www.', '');
-    const prompt = `You are a business analyst. I could not scrape the website ${url} directly. Based on your knowledge of the company "${domain}", write a clear and compelling 3-5 sentence value proposition paragraph. Describe what the company does, who they help, and what outcomes they deliver. Write in third person. ${langInstr}
+    const prompt = `You are a business analyst. I could not scrape the website ${url} directly. Based on your knowledge of the company "${domain}", fill in this value proposition JSON. If you don't have specific knowledge, make reasonable inferences from the domain name. ${langInstr}
 
-If you don't have specific knowledge of this company, make reasonable inferences from the domain name.
-
-Return ONLY the value proposition paragraph, no quotes, no markdown.`;
-    return await callClaude(prompt, apiKey);
+Return ONLY this JSON object with all fields filled in:
+${VP_FIELDS_SCHEMA}`;
+    const response = await callClaude(prompt, apiKey, 2048);
+    return parseVpJson(response);
   }
 
-  const prompt = `You are a business analyst. Given the following ${source === 'search' ? 'search results about a company' : 'website text'}, write a clear and compelling 3-5 sentence value proposition paragraph. Describe what the company does, who they help, and what outcomes they deliver. Write in third person. ${langInstr}
+  const prompt = `You are a business analyst. Given the following ${source === 'search' ? 'search results about a company' : 'website text'}, extract a comprehensive value proposition. ${langInstr}
+
+Return ONLY this JSON object with all fields filled in:
+${VP_FIELDS_SCHEMA}
 
 ${source === 'search' ? 'Search results' : 'Website text'}:
-${text}
+${text}`;
 
-Return ONLY the value proposition paragraph, no quotes, no markdown.`;
+  const response = await callClaude(prompt, apiKey, 2048);
+  return parseVpJson(response);
+}
 
-  return await callClaude(prompt, apiKey);
+export async function extractVpFromText(text, apiKey, lang = 'en') {
+  const langInstr = lang === 'de' ? 'Write ALL field values in German.' : 'Write ALL field values in English.';
+  const prompt = `You are a business analyst. Given the following website text, extract a comprehensive value proposition. ${langInstr}
+
+Return ONLY this JSON object with all fields filled in:
+${VP_FIELDS_SCHEMA}
+
+Website text:
+${text}`;
+  const response = await callClaude(prompt, apiKey, 2048);
+  return parseVpJson(response);
 }
 
 export async function generateICP(valueProposition, clientName, apiKey, lang = 'en') {
@@ -262,6 +297,20 @@ Rules:
   }
 }
 
+export function composeValueProposition(vp) {
+  if (!vp) return '';
+  if (typeof vp === 'string') return vp;
+  return [
+    vp.summary,
+    vp.elevatorPitch,
+    vp.painPoints && `Pain points addressed: ${vp.painPoints}`,
+    vp.usps && `Key differentiators: ${vp.usps}`,
+    vp.services && `Services: ${vp.services}`,
+    vp.benefits && `Client outcomes: ${vp.benefits}`,
+    vp.urgency && `Urgency: ${vp.urgency}`,
+  ].filter(Boolean).join(' ');
+}
+
 export function buildVarMap(lead, project) {
   return {
     '{Anrede}': lead.anrede || '',
@@ -276,7 +325,7 @@ export function buildVarMap(lead, project) {
     '{PersonLocation}': lead.location || '',
     '{MyNameFirst}': project.senderFirstName || '',
     '{MyNameLast}': project.senderLastName || '',
-    '{op.value_proposition}': project.valueProposition || '',
+    '{op.value_proposition}': composeValueProposition(project.valueProposition),
   };
 }
 

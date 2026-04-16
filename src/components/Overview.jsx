@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getApiKey } from '../utils/storage';
-import { scrapeValueProposition, scrapeCompanyInfo, buildVarMap, generateMessage, callClaude, generateICP } from '../utils/ai';
+import { scrapeValueProposition, extractVpFromText, scrapeCompanyInfo, buildVarMap, generateMessage, callClaude, generateICP, composeValueProposition } from '../utils/ai';
 import { switchSequenceLanguage } from '../utils/defaults';
 import { useToast } from './Toast';
 
@@ -75,9 +75,7 @@ export default function Overview({ project, updateProject }) {
     try {
       const text = pasteText.trim().slice(0, 6000);
       if (pasteModal === 'vp') {
-        const langInstr = lang === 'de' ? 'Write the entire response in German.' : 'Write the entire response in English.';
-        const prompt = `You are a business analyst. Given the following website text, write a clear and compelling 3-5 sentence value proposition paragraph. Describe what the company does, who they help, and what outcomes they deliver. Write in third person. ${langInstr}\n\nWebsite text:\n${text}\n\nReturn ONLY the value proposition paragraph, no quotes, no markdown.`;
-        const vp = await callClaude(prompt, apiKey);
+        const vp = await extractVpFromText(text, apiKey, lang);
         updateProject({ valueProposition: vp });
         toast.success('Value proposition extracted');
       } else {
@@ -133,13 +131,14 @@ export default function Overview({ project, updateProject }) {
   const handleGenerateICP = async () => {
     const apiKey = getApiKey();
     if (!apiKey) { toast.error('Set your Anthropic API key in Settings first'); return; }
-    if (!project.valueProposition) {
+    const vpStr = composeValueProposition(project.valueProposition);
+    if (!vpStr) {
       toast.error('Fill in the value proposition first (scrape or type it manually)');
       return;
     }
     setGeneratingICP(true);
     try {
-      const icp = await generateICP(project.valueProposition, project.clientName, apiKey, lang);
+      const icp = await generateICP(vpStr, project.clientName, apiKey, lang);
       setLead(icp);
       toast.success('Ideal customer profile generated');
     } catch (err) {
@@ -263,7 +262,36 @@ export default function Overview({ project, updateProject }) {
               </button>
             </div>
           </div>
-          <textarea className="textarea" rows={4} value={project.valueProposition} onChange={(e) => handleChange('valueProposition', e.target.value)} placeholder="Describe what this company does, who they help, and what outcomes they deliver..." />
+          <div className="vp-grid">
+            {[
+              { key: 'summary', label: 'Summary', placeholder: '1-2 sentence company overview...', full: true },
+              { key: 'elevatorPitch', label: 'Elevator Pitch', placeholder: 'We help [audience] to [outcome] by [method]...' },
+              { key: 'painPoints', label: 'Pain Points', placeholder: 'Key problems the target audience faces...' },
+              { key: 'usps', label: 'USPs', placeholder: 'What makes this company unique...' },
+              { key: 'services', label: 'Services', placeholder: 'Core services and products offered...' },
+              { key: 'benefits', label: 'Benefits', placeholder: 'Concrete outcomes and results clients get...' },
+              { key: 'urgency', label: 'Urgency', placeholder: 'Why act now — market timing, cost of inaction...' },
+            ].map(({ key, label, placeholder, full }) => {
+              const vp = project.valueProposition || {};
+              return (
+                <div key={key} className={`form-group${full ? ' vp-grid-full' : ''}`}>
+                  <label className="form-label">{label}</label>
+                  <textarea
+                    className="textarea"
+                    rows={3}
+                    value={typeof vp === 'string' ? (key === 'summary' ? vp : '') : (vp[key] || '')}
+                    onChange={(e) => {
+                      const current = typeof project.valueProposition === 'string'
+                        ? { summary: project.valueProposition, elevatorPitch: '', painPoints: '', usps: '', urgency: '', services: '', benefits: '' }
+                        : (project.valueProposition || {});
+                      handleChange('valueProposition', { ...current, [key]: e.target.value });
+                    }}
+                    placeholder={placeholder}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
