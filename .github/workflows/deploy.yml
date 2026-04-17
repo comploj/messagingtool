@@ -16,7 +16,9 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@178.104.72.166 "
             git config --global --add safe.directory /home/messagingapp/messagingtool &&
             cd /home/messagingapp/messagingtool &&
-            git pull &&
+            git fetch origin master &&
+            git reset --hard origin/master &&
+            npm ci &&
             npm run build &&
             systemctl restart messaging.service
           "
