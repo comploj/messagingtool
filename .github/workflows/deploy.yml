@@ -10,14 +10,15 @@ jobs:
     steps:
       - name: Deploy to VPS
         run: |
-          printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d ' \n\r\t' | base64 -d > /tmp/deploy_key
-          chmod 600 /tmp/deploy_key
-          echo "Key file size: $(wc -c < /tmp/deploy_key) bytes"
-          ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key root@178.104.72.166 "
+          mkdir -p ~/.ssh
+          printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d ' \n\r\t' | base64 -d > ~/.ssh/deploy_key
+          printf '\n' >> ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@178.104.72.166 "
             git config --global --add safe.directory /home/messagingapp/messagingtool &&
             cd /home/messagingapp/messagingtool &&
             git pull &&
             npm run build &&
             systemctl restart messaging.service
           "
-          rm /tmp/deploy_key
