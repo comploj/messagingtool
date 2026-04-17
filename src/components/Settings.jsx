@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { getApiKey, setApiKey, getCustomTokens, addCustomToken } from '../utils/storage';
 import { ACCESS_TOKENS } from '../config';
 import { useToast } from './Toast';
+import SequencePromptsEditor from './SequencePromptsEditor';
 
 export default function Settings() {
   const [apiKey, setApiKeyState] = useState(getApiKey());
@@ -78,6 +79,8 @@ export default function Settings() {
           ))}
         </div>
       </div>
+
+      <SequencePromptsEditor />
     </div>
   );
 }

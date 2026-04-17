@@ -1,9 +1,28 @@
+import { getFactoryStrategyKeys } from './prompts';
+
 const KEYS = {
   AUTH: 'leadhunt_auth',
   API_KEY: 'leadhunt_api_key',
   PROJECTS: 'leadhunt_projects',
   CUSTOM_TOKENS: 'leadhunt_custom_tokens',
+  PROMPT_OVERRIDES: 'leadhunt_prompt_overrides',
 };
+
+// Lazy migration: fill in seq.strategyKey on legacy sequences so the
+// prompt-overrides editor can match them. Mutates `project` in place.
+// Returns true if anything changed.
+function migrateProjectStrategyKeys(project) {
+  if (!project || !Array.isArray(project.sequences)) return false;
+  const keys = new Set(getFactoryStrategyKeys());
+  let changed = false;
+  for (const seq of project.sequences) {
+    if (seq && seq.strategyKey === undefined) {
+      seq.strategyKey = keys.has(seq.name) ? seq.name : null;
+      changed = true;
+    }
+  }
+  return changed;
+}
 
 // Auth
 export function getAuth() {
@@ -42,11 +61,20 @@ export function addCustomToken(token) {
 
 // Projects
 export function getProjects() {
+  let projects;
   try {
-    return JSON.parse(localStorage.getItem(KEYS.PROJECTS)) || [];
+    projects = JSON.parse(localStorage.getItem(KEYS.PROJECTS)) || [];
   } catch {
     return [];
   }
+  let anyMigrated = false;
+  for (const p of projects) {
+    if (migrateProjectStrategyKeys(p)) anyMigrated = true;
+  }
+  if (anyMigrated) {
+    localStorage.setItem(KEYS.PROJECTS, JSON.stringify(projects));
+  }
+  return projects;
 }
 
 export function getProject(id) {
@@ -74,4 +102,16 @@ export function saveProject(project) {
 export function deleteProject(id) {
   const projects = getProjects().filter((p) => p.id !== id);
   localStorage.setItem(KEYS.PROJECTS, JSON.stringify(projects));
+}
+
+// Prompt overrides (global sequence-prompt customizations from Settings)
+export function getPromptOverrides() {
+  try {
+    return JSON.parse(localStorage.getItem(KEYS.PROMPT_OVERRIDES)) || null;
+  } catch {
+    return null;
+  }
+}
+export function setPromptOverrides(obj) {
+  localStorage.setItem(KEYS.PROMPT_OVERRIDES, JSON.stringify(obj));
 }

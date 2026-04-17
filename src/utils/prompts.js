@@ -1391,25 +1391,20 @@ Gib die Nachricht jetzt aus.`,
   },
 };
 
-export function getStrategyNames() {
+// Factory (hardcoded) accessors. Treat these as the immutable baseline used by
+// the override layer in ./promptOverrides.js. Callers that want the effective
+// (user-editable) values should import from ./promptOverrides.js instead.
+export function getFactoryStrategyKeys() {
   return Object.keys(STRATEGIES);
 }
 
-export function getStaticFollowups(lang) {
+export function getFactoryStaticFollowups(lang) {
   return STATIC_FOLLOWUPS[lang] || STATIC_FOLLOWUPS.en;
 }
 
-export function getStrategyPrompt(name, lang) {
-  if (STRATEGIES[name] && STRATEGIES[name][lang]?.prompt) {
-    return STRATEGIES[name][lang].prompt;
-  }
-  // Fallback: return null (caller should keep existing prompt)
-  return null;
-}
-
-export function getStrategyDescription(name, lang) {
-  if (STRATEGIES[name] && STRATEGIES[name][lang]?.description) {
-    return STRATEGIES[name][lang].description;
-  }
-  return '';
+export function getFactoryStrategy(key, lang) {
+  const s = STRATEGIES[key];
+  if (!s) return { description: '', prompt: '' };
+  const l = s[lang] || s.en || {};
+  return { description: l.description || '', prompt: l.prompt || '' };
 }
