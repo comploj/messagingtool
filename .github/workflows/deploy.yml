@@ -18,4 +18,4 @@ jobs:
             cd /var/www/messagingtool
             git pull
             npm run build
-            systemctl restart messagingtool
+            systemctl restart messaging.service
