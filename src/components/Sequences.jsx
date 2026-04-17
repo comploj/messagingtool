@@ -12,7 +12,7 @@ function loadOutputs(projectId) {
   catch { return {}; }
 }
 
-export default function Sequences({ project, updateProject }) {
+export default function Sequences({ project, updateProject, addDeletedSeq }) {
   const [editingId, setEditingId] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
@@ -129,8 +129,10 @@ export default function Sequences({ project, updateProject }) {
 
   const handleDeleteSequence = (id) => {
     if (!confirm('Delete this sequence?')) return;
+    const seq = project.sequences.find((s) => s.id === id);
+    if (seq && addDeletedSeq) addDeletedSeq(seq);
     updateProject({ sequences: project.sequences.filter((s) => s.id !== id) });
-    toast.success('Sequence deleted');
+    toast.success('Sequence deleted — recoverable on Overview until reload');
   };
 
   const editingSeq = project.sequences.find((s) => s.id === editingId);

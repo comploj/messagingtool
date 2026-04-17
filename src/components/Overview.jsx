@@ -19,7 +19,7 @@ function loadJson(key, fallback) {
   catch { return fallback; }
 }
 
-export default function Overview({ project, updateProject }) {
+export default function Overview({ project, updateProject, recentlyDeletedSeqs = [], restoreDeletedSeq }) {
   const [scraping, setScraping] = useState(false);
   const [scrapingCompany, setScrapingCompany] = useState(false);
   const [lead, setLead] = useState(() => loadJson(LEAD_KEY(project.id), emptyLead));
@@ -409,6 +409,36 @@ export default function Overview({ project, updateProject }) {
           )}
         </button>
       </div>
+
+      {recentlyDeletedSeqs.length > 0 && (
+        <div className="overview-section">
+          <div className="vp-header">
+            <h3>Recently Deleted Sequences</h3>
+            <span className="text-secondary text-sm">Cleared on reload</span>
+          </div>
+          <div className="seq-checkboxes">
+            {recentlyDeletedSeqs.map((seq) => (
+              <div key={seq.id} className="seq-checkbox" style={{ justifyContent: 'space-between' }}>
+                <span>
+                  <strong>{seq.name}</strong>
+                  <span className="text-secondary text-sm" style={{ marginLeft: 8 }}>
+                    {seq.messages?.length || 0} message{(seq.messages?.length || 0) === 1 ? '' : 's'}
+                  </span>
+                </span>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    restoreDeletedSeq(seq.id);
+                    toast.success('Sequence restored');
+                  }}
+                >
+                  Restore
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {pasteModal && (
         <div className="modal-overlay" onClick={() => setPasteModal(null)}>
