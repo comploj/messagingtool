@@ -12,9 +12,10 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d ' \n\r\t' | base64 -d > ~/.ssh/deploy_key
-          printf '\n' >> ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null
+          echo "Expected md5: cb951266e1e921ec5ad651383938ad2c"
+          echo "Actual md5:   $(md5sum ~/.ssh/deploy_key | awk '{print $1}')"
+          echo "Size: $(wc -c < ~/.ssh/deploy_key) bytes"
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@178.104.72.166 "
             git config --global --add safe.directory /home/messagingapp/messagingtool &&
             cd /home/messagingapp/messagingtool &&
