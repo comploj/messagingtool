@@ -30,6 +30,30 @@ export async function callClaude(prompt, apiKey, maxTokens = 1024) {
   return data.content[0].text;
 }
 
+export async function callClaudeWithWebSearch(prompt, apiKey, maxTokens = 2048, maxUses = 3) {
+  const res = await fetch(ANTHROPIC_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: maxTokens,
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses }],
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`API error ${res.status}: ${err}`);
+  }
+  const data = await res.json();
+  return data.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+}
+
 function stripHtml(html) {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -249,31 +273,30 @@ ${text}`;
 
 export async function generateICP(valueProposition, clientName, apiKey, lang = 'en') {
   const langInstr = lang === 'de'
-    ? 'Write ALL field values in German. Use German names realistic for the DACH market. The position/role should be in German (e.g. "Leiter Einkauf" not "Head of Purchasing").'
+    ? 'Write ALL field values in German. The position/role should be in German (e.g. "Leiter Einkauf" not "Head of Purchasing"). Prefer a real company headquartered in the DACH region (Germany, Austria, or Switzerland) when one plausibly fits the value proposition.'
     : 'Write ALL field values in English.';
-  const prompt = `You are a sales strategist. Given the following company's value proposition, generate a realistic **Ideal Customer Profile (ICP)** — a fictional but plausible person at a fictional but realistic company who would be the perfect prospect for this business.
+  const prompt = `You are a sales strategist. Given the following company's value proposition, identify a realistic **Ideal Customer Profile (ICP)** — a plausible decision-maker persona at a REAL, currently-operating company that would be an excellent prospect for this business.
 
 ## Our Company
 ${clientName ? `Company: ${clientName}` : ''}
 Value Proposition: ${valueProposition}
 
 ## Task
-Based on what this company sells and who they serve, create a realistic ideal prospect. The prospect should be:
-- A decision-maker at a company that would genuinely benefit from this offering
-- In an industry and role that makes sense as a buyer
-- At a realistically sized company with a plausible name (NOT a real company — invent one)
-- The person name should be realistic for the company's likely geographic market
+1. Think about the ideal buyer: industry, company size, geography, and the role of the person who would decide to buy.
+2. USE THE web_search TOOL to find a REAL, currently-operating company that genuinely fits that ideal buyer profile (right industry, right size range, right region).
+3. USE THE web_search TOOL to verify the company's real homepage URL, headquarters location, and a short factual description of what they do.
+4. Choose a plausible buyer role at that company (e.g. "Head of Procurement", "VP Engineering"). The person's first and last name should be a realistic-sounding name for the company's country — do NOT name a real private individual; invent a plausible name for the role.
 
 ${langInstr}
 
-Return ONLY a valid JSON object with these exact fields:
+Return ONLY a valid JSON object with these exact fields, and nothing else:
 {
   "firstName": "...",
   "lastName": "...",
   "position": "...",
   "company": "...",
-  "companyWebsite": "https://www.example.com",
-  "companyDescription": "A 2-3 sentence description of what this prospect company does",
+  "companyWebsite": "https://www.real-company-homepage.com",
+  "companyDescription": "A 2-3 sentence description of what this real company actually does, grounded in what you found via web_search",
   "companyIndustry": "...",
   "companySize": "e.g. 50-200 employees",
   "companyLocation": "City, Country",
@@ -281,13 +304,15 @@ Return ONLY a valid JSON object with these exact fields:
 }
 
 Rules:
-1. The prospect company must be FICTIONAL — do not use a real company name
-2. Make the prospect company realistic for the industry
-3. The person's role should be the likely buyer/decision-maker for this type of offering
-4. All fields must be filled — no empty strings
-5. Return ONLY the JSON, no markdown, no explanation`;
+1. The prospect company MUST be a REAL, currently-operating company — verified via web_search. Do not invent a company.
+2. companyWebsite MUST be the real homepage URL you confirmed via web_search (not a guess, not example.com).
+3. companyLocation MUST match the real headquarters you found.
+4. companyDescription MUST accurately describe what the real company does, based on the search results.
+5. The person's role MUST be the likely buyer/decision-maker for this offering at that company; the first/last name is an invented-but-plausible name for a person in that role and region (do NOT use a real individual's name).
+6. All fields must be filled — no empty strings.
+7. Your FINAL message must contain ONLY the JSON object — no markdown, no commentary, no citations around the JSON.`;
 
-  const response = await callClaude(prompt, apiKey);
+  const response = await callClaudeWithWebSearch(prompt, apiKey);
   try {
     return JSON.parse(response);
   } catch {
