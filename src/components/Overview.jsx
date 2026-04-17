@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getApiKey } from '../utils/storage';
 import { scrapeValueProposition, extractVpFromText, scrapeCompanyInfo, buildVarMap, generateMessage, callClaude, generateICP, composeValueProposition } from '../utils/ai';
+import { extractTextFromFiles } from '../utils/documentText';
 import { switchSequenceLanguage } from '../utils/defaults';
 import { useToast } from './Toast';
 
@@ -32,6 +33,8 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
   const [pasteText, setPasteText] = useState('');
   const [pasteProcessing, setPasteProcessing] = useState(false);
   const [generatingICP, setGeneratingICP] = useState(false);
+  const [extractingDocs, setExtractingDocs] = useState(false);
+  const docFileInputRef = useRef(null);
   const toast = useToast();
 
   // Persist lead and selection
@@ -103,6 +106,26 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
       toast.error('Processing failed: ' + err.message);
     } finally {
       setPasteProcessing(false);
+    }
+  };
+
+  const handleUploadDocuments = async (files) => {
+    const apiKey = getApiKey();
+    if (!apiKey) { toast.error('Set your Anthropic API key in Settings first'); return; }
+    if (!files || files.length === 0) return;
+    setExtractingDocs(true);
+    try {
+      const { text, truncated } = await extractTextFromFiles(files);
+      if (!text.trim()) throw new Error('No readable text in the selected file(s)');
+      if (truncated) toast.info('Input truncated to 30k characters to keep cost predictable');
+      const vp = await extractVpFromText(text, apiKey, lang);
+      updateProject({ valueProposition: vp });
+      toast.success(`Value proposition extracted from ${files.length} document${files.length === 1 ? '' : 's'}`);
+    } catch (err) {
+      toast.error('Upload failed: ' + err.message);
+    } finally {
+      setExtractingDocs(false);
+      if (docFileInputRef.current) docFileInputRef.current.value = '';
     }
   };
 
@@ -260,6 +283,23 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
               <button className="btn btn-secondary btn-sm" onClick={handleScrapeVP} disabled={scraping}>
                 {scraping ? <><span className="spinner spinner-sm"></span> Scraping...</> : 'Scrape from website'}
               </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => docFileInputRef.current?.click()}
+                disabled={extractingDocs}
+              >
+                {extractingDocs
+                  ? <><span className="spinner spinner-sm"></span> Extracting...</>
+                  : 'Upload documents'}
+              </button>
+              <input
+                ref={docFileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+                style={{ display: 'none' }}
+                onChange={(e) => handleUploadDocuments(Array.from(e.target.files || []))}
+              />
             </div>
           </div>
           <div className="vp-grid">
