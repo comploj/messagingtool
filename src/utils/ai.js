@@ -283,8 +283,8 @@ Value Proposition: ${valueProposition}
 
 ## Task
 1. Think about the ideal buyer: industry, company size, geography, and the role of the person who would decide to buy.
-2. USE THE web_search TOOL to find a REAL, currently-operating company that genuinely fits that ideal buyer profile (right industry, right size range, right region).
-3. USE THE web_search TOOL to verify the company's real homepage URL, headquarters location, and a short factual description of what they do.
+2. If you already know a real, currently-operating company that fits perfectly, use it. If you are NOT sure of a real company that fits, you MUST use the web_search TOOL to discover one — never invent a company name, never use placeholders.
+3. USE THE web_search TOOL to verify the company's real homepage URL, headquarters location, products/services they offer, industries they serve, and notable clients or markets. Gather enough detail to write a thorough description.
 4. Choose a plausible buyer role at that company (e.g. "Head of Procurement", "VP Engineering"). The person's first and last name should be a realistic-sounding name for the company's country — do NOT name a real private individual; invent a plausible name for the role.
 
 ${langInstr}
@@ -296,7 +296,7 @@ Return ONLY a valid JSON object with these exact fields, and nothing else:
   "position": "...",
   "company": "...",
   "companyWebsite": "https://www.real-company-homepage.com",
-  "companyDescription": "A 2-3 sentence description of what this real company actually does, grounded in what you found via web_search",
+  "companyDescription": "A detailed, factually accurate 5-8 sentence description of what this real company actually does — covering their core products/services, target markets and customer segments, industries they serve, geographic reach, notable strengths or specialisations, and any flagship offerings or known clients. Ground every sentence in what you found via web_search.",
   "companyIndustry": "...",
   "companySize": "e.g. 50-200 employees",
   "companyLocation": "City, Country",
@@ -307,7 +307,7 @@ Rules:
 1. The prospect company MUST be a REAL, currently-operating company — verified via web_search. Do not invent a company.
 2. companyWebsite MUST be the real homepage URL you confirmed via web_search (not a guess, not example.com).
 3. companyLocation MUST match the real headquarters you found.
-4. companyDescription MUST accurately describe what the real company does, based on the search results.
+4. companyDescription MUST be a detailed, factually accurate 5-8 sentence description grounded in your web_search findings — cover what they do, who they serve, which industries/markets, geographic reach, and any notable strengths. Do NOT be vague or generic; use specific product names, market segments, and client types wherever possible.
 5. The person's role MUST be the likely buyer/decision-maker for this offering at that company; the first/last name is an invented-but-plausible name for a person in that role and region (do NOT use a real individual's name).
 6. All fields must be filled — no empty strings.
 7. Your FINAL message must contain ONLY the JSON object — no markdown, no commentary, no citations around the JSON.`;
