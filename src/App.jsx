@@ -1,18 +1,43 @@
 import { useState, useEffect } from 'react';
-import { getAuth, clearAuth, getApiKey } from './utils/storage';
+import { getAuth, clearAuth, getApiKey, hydrateFromServer } from './utils/storage';
 import Login from './components/Login';
 import Nav from './components/Nav';
 import Projects from './components/Projects';
 import ProjectView from './components/ProjectView';
 import Settings from './components/Settings';
+import { useToast } from './components/Toast';
 
 export default function App() {
   const [authed, setAuthed] = useState(!!getAuth());
+  const [hydrated, setHydrated] = useState(!getAuth());
   const [view, setView] = useState('projects'); // 'projects' | 'project' | 'settings'
   const [projectId, setProjectId] = useState(null);
   const [projectName, setProjectName] = useState('');
+  const toast = useToast();
 
-  const handleLogin = () => setAuthed(true);
+  // Hydrate on login / app mount, and poll every 30s to pick up teammates' edits
+  // into localStorage. Changes appear on the next navigation / reload.
+  useEffect(() => {
+    if (!authed) { setHydrated(true); return; }
+    let cancelled = false;
+    (async () => {
+      try { await hydrateFromServer(); } catch (err) { console.error('[hydrate] failed', err); }
+      if (!cancelled) setHydrated(true);
+    })();
+    const id = setInterval(() => { hydrateFromServer().catch(() => {}); }, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [authed]);
+
+  // Surface save conflicts (teammate saved while we had a pending push).
+  useEffect(() => {
+    const onConflict = () => {
+      toast.info?.('Teammate saved while you were editing — latest version loaded');
+    };
+    window.addEventListener('leadhunt:state_conflict', onConflict);
+    return () => window.removeEventListener('leadhunt:state_conflict', onConflict);
+  }, [toast]);
+
+  const handleLogin = () => { setAuthed(true); setHydrated(false); };
 
   const handleLogout = () => {
     clearAuth();
@@ -39,6 +64,14 @@ export default function App() {
 
   if (!authed) {
     return <Login onLogin={handleLogin} />;
+  }
+
+  if (!hydrated) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: 'var(--text-secondary)' }}>
+        <span className="spinner" style={{ marginRight: 10 }} /> Loading…
+      </div>
+    );
   }
 
   const apiKey = getApiKey();

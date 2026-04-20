@@ -1,10 +1,18 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { requireAuth, handleAuth, handleGetState, handlePutState } from './server/state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 8080;
 const app = express();
+
+app.use(express.json({ limit: '4mb' }));
+
+// Shared-state endpoints (projects, prompt overrides, custom tokens)
+app.get('/api/auth', requireAuth, handleAuth);
+app.get('/api/state', requireAuth, handleGetState);
+app.put('/api/state', requireAuth, handlePutState);
 
 // Scrape proxy endpoint
 app.get('/api/scrape', async (req, res) => {

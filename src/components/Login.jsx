@@ -1,21 +1,28 @@
 import { useState } from 'react';
-import { ACCESS_TOKENS } from '../config';
-import { setAuth, getCustomTokens } from '../utils/storage';
+import { setAuth } from '../utils/storage';
+import { validateToken } from '../utils/apiClient';
 import { useToast } from './Toast';
 
 export default function Login({ onLogin }) {
   const [token, setToken] = useState('');
+  const [checking, setChecking] = useState(false);
   const toast = useToast();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const allTokens = [...ACCESS_TOKENS, ...getCustomTokens()];
-    if (allTokens.includes(token.trim())) {
-      setAuth(token.trim());
-      onLogin();
-      toast.success('Logged in successfully');
-    } else {
-      toast.error('Invalid access token');
+    const t = token.trim();
+    if (!t) return;
+    setChecking(true);
+    try {
+      if (await validateToken(t)) {
+        setAuth(t);
+        onLogin();
+        toast.success('Logged in successfully');
+      } else {
+        toast.error('Invalid access token');
+      }
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -36,8 +43,8 @@ export default function Login({ onLogin }) {
               autoFocus
             />
           </div>
-          <button className="btn btn-primary" type="submit" style={{ width: '100%' }}>
-            Sign In
+          <button className="btn btn-primary" type="submit" style={{ width: '100%' }} disabled={checking}>
+            {checking ? <><span className="spinner spinner-sm"></span> Signing in...</> : 'Sign In'}
           </button>
         </form>
       </div>
