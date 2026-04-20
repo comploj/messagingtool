@@ -35,6 +35,8 @@ export default function SequencePromptsEditor() {
   const [lang, setLang] = useState('en');
   const [draft, setDraft] = useState(buildInitialDraft);
   const [expanded, setExpanded] = useState({});
+  const [framingOpen, setFramingOpen] = useState(false);
+  const [followupsOpen, setFollowupsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const toast = useToast();
   const keys = useMemo(() => getEffectiveStrategyKeys(), []);
@@ -131,71 +133,106 @@ export default function SequencePromptsEditor() {
         Per-project customizations are preserved.
       </p>
 
-      {/* Prompt framing — shared across every strategy; only visible here. */}
-      <div className="settings-section" style={{ marginBottom: 16 }}>
-        <h4 style={{ marginTop: 0 }}>Prompt framing — shared (your IP, {lang === 'de' ? 'Deutsch' : 'English'})</h4>
-        <p className="text-secondary text-sm" style={{ marginTop: 0 }}>
-          Prepended and appended to every AI message at generate time. Hidden from per-sequence editors.
-        </p>
-        <div className="form-group">
-          <label className="form-label">PRELUDE ({lang === 'de' ? 'DEUTSCH' : 'ENGLISH'})</label>
-          <textarea
-            className="textarea textarea-mono"
-            rows={12}
-            value={draft.framing[lang].prelude}
-            onChange={(e) => updateFraming(lang, { prelude: e.target.value })}
-          />
+      {/* Prompt framing — shared across every strategy; only visible here.
+          Collapsible + accent-tinted so it's visually distinct from per-strategy cards. */}
+      <div
+        style={{
+          marginBottom: 8,
+          border: '1px solid var(--accent)',
+          borderRadius: 6,
+          background: 'rgba(99, 102, 241, 0.08)',
+        }}
+      >
+        <div
+          style={{ padding: 10, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          onClick={() => setFramingOpen((v) => !v)}
+        >
+          <strong>Prompt framing — shared (your IP, {lang === 'de' ? 'Deutsch' : 'English'})</strong>
+          <span className="text-secondary text-sm">{framingOpen ? '▼' : '▶'}</span>
         </div>
-        <div className="form-group">
-          <label className="form-label">POSTLUDE ({lang === 'de' ? 'DEUTSCH' : 'ENGLISH'})</label>
-          <textarea
-            className="textarea textarea-mono"
-            rows={8}
-            value={draft.framing[lang].postlude}
-            onChange={(e) => updateFraming(lang, { postlude: e.target.value })}
-          />
-        </div>
-      </div>
-
-      {/* Shared follow-ups */}
-      <div className="settings-section" style={{ marginBottom: 16 }}>
-        <h4 style={{ marginTop: 0 }}>Shared follow-ups ({lang === 'de' ? 'Deutsch' : 'English'})</h4>
-        <p className="text-secondary text-sm" style={{ marginTop: 0 }}>
-          These two static messages are appended to every sequence as Message 2 and Message 3.
-        </p>
-        {draft.staticFollowups[lang].map((f, i) => (
-          <div key={i} style={{ marginBottom: 16, padding: 12, border: '1px solid var(--border)', borderRadius: 6 }}>
-            <div className="settings-row" style={{ gap: 8 }}>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">LABEL</label>
-                <input
-                  className="input"
-                  value={f.label}
-                  onChange={(e) => updateFollowup(lang, i, { label: e.target.value })}
-                />
-              </div>
-              <div className="form-group" style={{ width: 120 }}>
-                <label className="form-label">DELAY (DAYS)</label>
-                <input
-                  className="input"
-                  type="number"
-                  min={1}
-                  value={f.delayDays}
-                  onChange={(e) => updateFollowup(lang, i, { delayDays: parseInt(e.target.value) || 1 })}
-                />
-              </div>
+        {framingOpen && (
+          <div style={{ padding: 12, borderTop: '1px solid var(--accent)' }}>
+            <p className="text-secondary text-sm" style={{ marginTop: 0 }}>
+              Prepended and appended to every AI message at generate time. Hidden from per-sequence editors.
+            </p>
+            <div className="form-group">
+              <label className="form-label">PRELUDE ({lang === 'de' ? 'DEUTSCH' : 'ENGLISH'})</label>
+              <textarea
+                className="textarea textarea-mono"
+                rows={12}
+                value={draft.framing[lang].prelude}
+                onChange={(e) => updateFraming(lang, { prelude: e.target.value })}
+              />
             </div>
             <div className="form-group">
-              <label className="form-label">PROMPT</label>
+              <label className="form-label">POSTLUDE ({lang === 'de' ? 'DEUTSCH' : 'ENGLISH'})</label>
               <textarea
-                className="textarea"
-                rows={4}
-                value={f.prompt}
-                onChange={(e) => updateFollowup(lang, i, { prompt: e.target.value })}
+                className="textarea textarea-mono"
+                rows={8}
+                value={draft.framing[lang].postlude}
+                onChange={(e) => updateFraming(lang, { postlude: e.target.value })}
               />
             </div>
           </div>
-        ))}
+        )}
+      </div>
+
+      {/* Shared follow-ups — also global, collapsible, same accent tint. */}
+      <div
+        style={{
+          marginBottom: 16,
+          border: '1px solid var(--accent)',
+          borderRadius: 6,
+          background: 'rgba(99, 102, 241, 0.08)',
+        }}
+      >
+        <div
+          style={{ padding: 10, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          onClick={() => setFollowupsOpen((v) => !v)}
+        >
+          <strong>Shared follow-ups ({lang === 'de' ? 'Deutsch' : 'English'})</strong>
+          <span className="text-secondary text-sm">{followupsOpen ? '▼' : '▶'}</span>
+        </div>
+        {followupsOpen && (
+          <div style={{ padding: 12, borderTop: '1px solid var(--accent)' }}>
+            <p className="text-secondary text-sm" style={{ marginTop: 0 }}>
+              These two static messages are appended to every sequence as Message 2 and Message 3.
+            </p>
+            {draft.staticFollowups[lang].map((f, i) => (
+              <div key={i} style={{ marginBottom: 16, padding: 12, border: '1px solid var(--border)', borderRadius: 6 }}>
+                <div className="settings-row" style={{ gap: 8 }}>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">LABEL</label>
+                    <input
+                      className="input"
+                      value={f.label}
+                      onChange={(e) => updateFollowup(lang, i, { label: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group" style={{ width: 120 }}>
+                    <label className="form-label">DELAY (DAYS)</label>
+                    <input
+                      className="input"
+                      type="number"
+                      min={1}
+                      value={f.delayDays}
+                      onChange={(e) => updateFollowup(lang, i, { delayDays: parseInt(e.target.value) || 1 })}
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">PROMPT</label>
+                  <textarea
+                    className="textarea"
+                    rows={4}
+                    value={f.prompt}
+                    onChange={(e) => updateFollowup(lang, i, { prompt: e.target.value })}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Per-strategy cards */}
