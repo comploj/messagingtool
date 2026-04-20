@@ -206,7 +206,7 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
         count++;
         setGenProgress(`${count}/${total} — ${seq.name}: ${msg.label}`);
         try {
-          const result = await generateMessage(msg, varMap, apiKey);
+          const result = await generateMessage(msg, varMap, apiKey, lang);
           outputs[msg.id] = result;
           localStorage.setItem(OUTPUTS_KEY(project.id), JSON.stringify(outputs));
         } catch (err) {
@@ -318,7 +318,7 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
                   <label className="form-label">{label}</label>
                   <textarea
                     className="textarea"
-                    rows={3}
+                    rows={6}
                     value={typeof vp === 'string' ? (key === 'summary' ? vp : '') : (vp[key] || '')}
                     onChange={(e) => {
                       const current = typeof project.valueProposition === 'string'
