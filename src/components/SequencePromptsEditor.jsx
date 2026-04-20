@@ -13,10 +13,9 @@ function buildInitialDraft() {
     const en = getEffectiveStrategy(key, 'en');
     const de = getEffectiveStrategy(key, 'de');
     strategies[key] = {
-      displayName: en.displayName,
       delayDays: en.delayDays,
-      en: { description: en.description, prompt: en.prompt },
-      de: { description: de.description, prompt: de.prompt },
+      en: { displayName: en.displayName, description: en.description, prompt: en.prompt },
+      de: { displayName: de.displayName, description: de.description, prompt: de.prompt },
     };
   }
   const staticFollowups = {
@@ -74,10 +73,9 @@ export default function SequencePromptsEditor() {
       for (const key of keys) {
         const s = draft.strategies[key];
         overrides.strategies[key] = {
-          displayName: s.displayName,
           delayDays: Number(s.delayDays) || 1,
-          en: { description: s.en.description, prompt: s.en.prompt },
-          de: { description: s.de.description, prompt: s.de.prompt },
+          en: { displayName: s.en.displayName, description: s.en.description, prompt: s.en.prompt },
+          de: { displayName: s.de.displayName, description: s.de.description, prompt: s.de.prompt },
         };
       }
       const { changedProjects } = applyPromptOverrides(overrides);
@@ -163,24 +161,25 @@ export default function SequencePromptsEditor() {
       {keys.map((key) => {
         const s = draft.strategies[key];
         const isOpen = !!expanded[key];
+        const headerName = s[lang].displayName || s.en.displayName || key;
         return (
           <div key={key} style={{ marginBottom: 8, border: '1px solid var(--border)', borderRadius: 6 }}>
             <div
               style={{ padding: 10, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               onClick={() => toggleExpand(key)}
             >
-              <strong>{s.displayName}</strong>
-              <span className="text-secondary text-sm">{isOpen ? '▼' : '▶'} {key !== s.displayName && `(${key})`}</span>
+              <strong>{headerName}</strong>
+              <span className="text-secondary text-sm">{isOpen ? '▼' : '▶'} {key !== headerName && `(${key})`}</span>
             </div>
             {isOpen && (
               <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
                 <div className="settings-row" style={{ gap: 8 }}>
                   <div className="form-group" style={{ flex: 1 }}>
-                    <label className="form-label">DISPLAY NAME (SHARED ACROSS LANGUAGES)</label>
+                    <label className="form-label">DISPLAY NAME ({lang === 'de' ? 'DEUTSCH' : 'ENGLISH'})</label>
                     <input
                       className="input"
-                      value={s.displayName}
-                      onChange={(e) => updateStrategy(key, { displayName: e.target.value })}
+                      value={s[lang].displayName}
+                      onChange={(e) => updateStrategyLang(key, lang, { displayName: e.target.value })}
                     />
                   </div>
                   <div className="form-group" style={{ width: 140 }}>

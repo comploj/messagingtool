@@ -1,7 +1,6 @@
 import {
   getEffectiveStrategyKeys,
   getEffectiveStrategy,
-  getEffectiveStrategyDisplayName,
   getEffectiveStaticFollowups,
 } from './promptOverrides';
 
@@ -46,6 +45,7 @@ export function switchSequenceLanguage(sequences, lang) {
 
     return {
       ...seq,
+      name: eff.displayName || seq.name,
       description: eff.description || seq.description,
       messages,
     };

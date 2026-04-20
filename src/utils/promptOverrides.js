@@ -11,13 +11,15 @@ export function saveOverrides(o) {
 }
 
 // Returns the effective (override-or-factory) values for a strategy in a language.
+// displayName is per-language; legacy language-neutral stratOv.displayName is still
+// honored as a fallback so blobs written before this migration keep working.
 export function getEffectiveStrategy(key, lang) {
   const o = loadOverrides();
   const factory = getFactoryStrategy(key, lang);
   const stratOv = o.strategies?.[key] || {};
   const langOv = stratOv[lang] || {};
   return {
-    displayName: stratOv.displayName ?? key,
+    displayName: langOv.displayName ?? stratOv.displayName ?? key,
     description: langOv.description ?? factory.description ?? '',
     prompt: langOv.prompt ?? factory.prompt ?? '',
     delayDays: stratOv.delayDays ?? DEFAULT_FIRST_MESSAGE_DELAY,
@@ -28,9 +30,8 @@ export function getEffectiveStrategyKeys() {
   return getFactoryStrategyKeys();
 }
 
-export function getEffectiveStrategyDisplayName(key) {
-  const o = loadOverrides();
-  return o.strategies?.[key]?.displayName ?? key;
+export function getEffectiveStrategyDisplayName(key, lang) {
+  return getEffectiveStrategy(key, lang).displayName;
 }
 
 export function getEffectiveStaticFollowups(lang) {
@@ -53,10 +54,9 @@ function buildSnapshot() {
     const en = getEffectiveStrategy(key, 'en');
     const de = getEffectiveStrategy(key, 'de');
     strategies[key] = {
-      displayName: en.displayName, // language-neutral
       delayDays: en.delayDays,
-      en: { description: en.description, prompt: en.prompt },
-      de: { description: de.description, prompt: de.prompt },
+      en: { displayName: en.displayName, description: en.description, prompt: en.prompt },
+      de: { displayName: de.displayName, description: de.description, prompt: de.prompt },
     };
   }
   return {
@@ -87,9 +87,9 @@ export function applyPromptOverrides(nextOverrides) {
       if (!key || !oldSnap.strategies[key]) continue;
       const oldS = oldSnap.strategies[key];
       const newS = newSnap.strategies[key];
-      // Display name (language-neutral)
-      if (seq.name === oldS.displayName && seq.name !== newS.displayName) {
-        seq.name = newS.displayName;
+      // Display name (per project language)
+      if (seq.name === oldS[lang].displayName && seq.name !== newS[lang].displayName) {
+        seq.name = newS[lang].displayName;
         projectChanged = true;
       }
       // Description (per project language)
