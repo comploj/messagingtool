@@ -1,84 +1,85 @@
 import { useState } from 'react';
-import { getProjects, saveProject, deleteProject } from '../utils/storage';
-import { createDefaultSequences } from '../utils/defaults';
+import { getCustomers, getProjects, saveCustomer, deleteCustomer } from '../utils/storage';
 import { useToast } from './Toast';
 
-export default function Projects({ onSelectProject }) {
-  const [projects, setProjects] = useState(getProjects());
+export default function Projects({ onSelectCustomer }) {
+  const [customers, setCustomers] = useState(() => getCustomers());
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('');
-  const [clientName, setClientName] = useState('');
   const toast = useToast();
 
-  const refresh = () => setProjects(getProjects());
+  const refresh = () => setCustomers(getCustomers());
+  const projects = getProjects();
+
+  const projectCount = (customerId) =>
+    projects.filter((p) => p.customerId === customerId).length;
 
   const handleCreate = (e) => {
     e.preventDefault();
-    if (!name.trim()) return;
-    const project = {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    saveCustomer({
       id: crypto.randomUUID(),
-      name: name.trim(),
-      clientName: clientName.trim(),
-      clientWebsite: '',
-      valueProposition: { summary: '', elevatorPitch: '', painPoints: '', usps: '', urgency: '', services: '', benefits: '' },
-      senderFirstName: '',
-      senderLastName: '',
-      sequences: createDefaultSequences(),
+      name: trimmed,
       createdAt: new Date().toISOString(),
-    };
-    saveProject(project);
+    });
     refresh();
     setShowModal(false);
     setName('');
-    setClientName('');
-    toast.success('Project created');
+    toast.success('Customer created');
   };
 
-  const handleDelete = (e, id) => {
+  const handleDelete = (e, customer) => {
     e.stopPropagation();
-    if (!confirm('Delete this project?')) return;
-    deleteProject(id);
+    const n = projectCount(customer.id);
+    const msg = n > 0
+      ? `Delete "${customer.name}" and its ${n} project${n === 1 ? '' : 's'}?`
+      : `Delete "${customer.name}"?`;
+    if (!confirm(msg)) return;
+    deleteCustomer(customer.id);
     refresh();
-    toast.success('Project deleted');
+    toast.success('Customer deleted');
   };
 
   return (
     <div className="page">
       <div className="page-header">
-        <h2>Projects</h2>
+        <h2>Customers</h2>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          + New Project
+          + New Customer
         </button>
       </div>
 
-      {projects.length === 0 ? (
+      {customers.length === 0 ? (
         <div className="empty-state">
-          <h3>No projects yet</h3>
-          <p>Create your first project to get started with outreach sequences.</p>
+          <h3>No customers yet</h3>
+          <p>Create your first customer to start adding projects.</p>
           <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-            Create Project
+            Create Customer
           </button>
         </div>
       ) : (
         <div className="project-grid">
-          {projects.map((p) => (
-            <div key={p.id} className="project-card" onClick={() => onSelectProject(p.id)}>
-              <h3>{p.name}</h3>
-              <div className="text-secondary text-sm">{p.clientName || 'No client'}</div>
-              <div className="project-card-meta">
-                <span>{p.sequences?.length || 0} sequences</span>
-                <span>{new Date(p.createdAt).toLocaleDateString()}</span>
+          {customers.map((c) => {
+            const n = projectCount(c.id);
+            return (
+              <div key={c.id} className="project-card" onClick={() => onSelectCustomer(c.id, c.name)}>
+                <h3>{c.name}</h3>
+                <div className="project-card-meta">
+                  <span>{n} project{n === 1 ? '' : 's'}</span>
+                  {c.createdAt && <span>{new Date(c.createdAt).toLocaleDateString()}</span>}
+                </div>
+                <div className="project-card-actions">
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={(e) => handleDelete(e, c)}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-              <div className="project-card-actions">
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={(e) => handleDelete(e, p.id)}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -86,29 +87,20 @@ export default function Projects({ onSelectProject }) {
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>New Project</h2>
+              <h2>New Customer</h2>
               <button className="btn btn-ghost btn-sm" onClick={() => setShowModal(false)}>
                 &times;
               </button>
             </div>
             <form onSubmit={handleCreate}>
               <div className="form-group mb-16">
-                <label className="form-label">Project Name</label>
+                <label className="form-label">Customer Name</label>
                 <input
                   className="input"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Q1 Outreach Campaign"
-                  autoFocus
-                />
-              </div>
-              <div className="form-group mb-16">
-                <label className="form-label">Client Name</label>
-                <input
-                  className="input"
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
                   placeholder="e.g. Acme Corp"
+                  autoFocus
                 />
               </div>
               <div className="modal-footer">
@@ -116,7 +108,7 @@ export default function Projects({ onSelectProject }) {
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Create Project
+                  Create Customer
                 </button>
               </div>
             </form>

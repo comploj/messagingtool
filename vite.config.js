@@ -87,6 +87,7 @@ export default defineConfig({
             const next = {
               version: current.version + 1,
               projects: Array.isArray(state?.projects) ? state.projects : current.projects,
+              customers: Array.isArray(state?.customers) ? state.customers : current.customers,
               promptOverrides: state?.promptOverrides ?? current.promptOverrides,
               customTokens: Array.isArray(state?.customTokens) ? state.customTokens : current.customTokens,
             };

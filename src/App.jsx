@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { getAuth, clearAuth, getApiKey, hydrateFromServer } from './utils/storage';
+import { getAuth, clearAuth, getApiKey, hydrateFromServer, getCustomer, getProjects } from './utils/storage';
 import Login from './components/Login';
 import Nav from './components/Nav';
 import Projects from './components/Projects';
+import CustomerView from './components/CustomerView';
 import ProjectView from './components/ProjectView';
 import Settings from './components/Settings';
 import { useToast } from './components/Toast';
@@ -10,7 +11,9 @@ import { useToast } from './components/Toast';
 export default function App() {
   const [authed, setAuthed] = useState(!!getAuth());
   const [hydrated, setHydrated] = useState(!getAuth());
-  const [view, setView] = useState('projects'); // 'projects' | 'project' | 'settings'
+  const [view, setView] = useState('projects'); // 'projects' | 'customer' | 'project' | 'settings'
+  const [customerId, setCustomerId] = useState(null);
+  const [customerName, setCustomerName] = useState('');
   const [projectId, setProjectId] = useState(null);
   const [projectName, setProjectName] = useState('');
   const toast = useToast();
@@ -43,20 +46,43 @@ export default function App() {
     clearAuth();
     setAuthed(false);
     setView('projects');
+    setCustomerId(null);
+    setCustomerName('');
     setProjectId(null);
+    setProjectName('');
   };
 
-  const handleSelectProject = (id) => {
-    const projects = JSON.parse(localStorage.getItem('leadhunt_projects') || '[]');
-    const p = projects.find((p) => p.id === id);
+  const handleSelectCustomer = (id, name) => {
+    setCustomerId(id);
+    setCustomerName(name);
+    setView('customer');
+  };
+
+  const handleSelectProject = (id, name) => {
     setProjectId(id);
-    setProjectName(p?.name || '');
+    setProjectName(name || '');
+    // Ensure customer context is set even if this was called from outside CustomerView.
+    if (!customerId) {
+      const p = getProjects().find((x) => x.id === id);
+      if (p?.customerId) {
+        setCustomerId(p.customerId);
+        setCustomerName(getCustomer(p.customerId)?.name || '');
+      }
+    }
     setView('project');
   };
 
   const handleBack = () => {
-    if (view === 'project' || view === 'settings') {
+    if (view === 'project') {
+      setView('customer');
+      setProjectId(null);
+      setProjectName('');
+      return;
+    }
+    if (view === 'customer' || view === 'settings') {
       setView('projects');
+      setCustomerId(null);
+      setCustomerName('');
       setProjectId(null);
       setProjectName('');
     }
@@ -85,14 +111,24 @@ export default function App() {
         </div>
       )}
       <Nav
+        customerName={(view === 'customer' || view === 'project') ? customerName : null}
         projectName={view === 'project' ? projectName : null}
         onBack={view !== 'projects' ? handleBack : null}
         onSettings={() => setView('settings')}
         onLogout={handleLogout}
       />
       {view === 'projects' && (
-        <Projects onSelectProject={handleSelectProject} />
+        <Projects onSelectCustomer={handleSelectCustomer} />
       )}
+      {view === 'customer' && customerId && (() => {
+        const customer = getCustomer(customerId) || { id: customerId, name: customerName };
+        return (
+          <CustomerView
+            customer={customer}
+            onSelectProject={handleSelectProject}
+          />
+        );
+      })()}
       {view === 'project' && projectId && (
         <ProjectView projectId={projectId} />
       )}

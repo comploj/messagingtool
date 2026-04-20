@@ -1,4 +1,4 @@
-export default function Nav({ projectName, onBack, onSettings, onLogout }) {
+export default function Nav({ customerName, projectName, onBack, onSettings, onLogout }) {
   return (
     <nav className="nav">
       <div className="nav-left">
@@ -10,6 +10,12 @@ export default function Nav({ projectName, onBack, onSettings, onLogout }) {
         <div className="nav-brand">
           <img src="/leadhunt-logo.png" alt="LeadHunt" />
         </div>
+        {customerName && (
+          <>
+            <span className="nav-sep">/</span>
+            <span className="nav-title">{customerName}</span>
+          </>
+        )}
         {projectName && (
           <>
             <span className="nav-sep">/</span>

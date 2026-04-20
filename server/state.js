@@ -9,24 +9,70 @@ function emptyStore() {
   return {
     version: 0,
     projects: [],
+    customers: [],
     promptOverrides: { strategies: {}, staticFollowups: {} },
     customTokens: [],
   };
 }
 
+function randomId() {
+  try { return globalThis.crypto?.randomUUID?.() || ''; } catch {}
+  return `cust-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// One-shot migration: synthesize customers from legacy project.clientName
+// whenever a project is missing its customerId, and back-fill the FK on every
+// such project. Runs on every read but is a no-op after the first write.
+function migrateStore(store) {
+  const projects = Array.isArray(store.projects) ? store.projects : [];
+  let customers = Array.isArray(store.customers) ? store.customers : [];
+  const allMigrated = customers.length > 0 && projects.every((p) => p.customerId);
+  if (allMigrated) return { ...store, projects, customers };
+
+  const byName = new Map();
+  for (const c of customers) byName.set((c.name || '').trim() || 'Uncategorized', c);
+
+  for (const p of projects) {
+    const name = (p.clientName || '').trim() || 'Uncategorized';
+    if (!byName.has(name)) {
+      byName.set(name, {
+        id: randomId() || `cust-${byName.size}-${Date.now()}`,
+        name,
+        website: '',
+        createdAt: new Date().toISOString(),
+      });
+    }
+    const cust = byName.get(name);
+    if (!cust.website && p.clientWebsite) cust.website = p.clientWebsite;
+  }
+
+  customers = Array.from(byName.values());
+  const nameToId = Object.fromEntries(customers.map((c) => [c.name, c.id]));
+
+  const nextProjects = projects.map((p) => {
+    if (p.customerId) return p;
+    const name = (p.clientName || '').trim() || 'Uncategorized';
+    return { ...p, customerId: nameToId[name] };
+  });
+  return { ...store, projects: nextProjects, customers };
+}
+
 export async function readStore() {
+  let parsed;
   try {
     const raw = await readFile(STORE_FILE, 'utf8');
-    const parsed = JSON.parse(raw);
-    return {
-      version: Number(parsed.version) || 0,
-      projects: Array.isArray(parsed.projects) ? parsed.projects : [],
-      promptOverrides: parsed.promptOverrides || { strategies: {}, staticFollowups: {} },
-      customTokens: Array.isArray(parsed.customTokens) ? parsed.customTokens : [],
-    };
+    parsed = JSON.parse(raw);
   } catch {
     return emptyStore();
   }
+  const base = {
+    version: Number(parsed.version) || 0,
+    projects: Array.isArray(parsed.projects) ? parsed.projects : [],
+    customers: Array.isArray(parsed.customers) ? parsed.customers : [],
+    promptOverrides: parsed.promptOverrides || { strategies: {}, staticFollowups: {} },
+    customTokens: Array.isArray(parsed.customTokens) ? parsed.customTokens : [],
+  };
+  return migrateStore(base);
 }
 
 export async function writeStore(next) {
@@ -70,6 +116,7 @@ export async function handlePutState(req, res) {
   const next = {
     version: current.version + 1,
     projects: Array.isArray(state?.projects) ? state.projects : current.projects,
+    customers: Array.isArray(state?.customers) ? state.customers : current.customers,
     promptOverrides: state?.promptOverrides ?? current.promptOverrides,
     customTokens: Array.isArray(state?.customTokens) ? state.customTokens : current.customTokens,
   };

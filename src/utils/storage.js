@@ -4,6 +4,7 @@ const KEYS = {
   AUTH: 'leadhunt_auth',
   API_KEY: 'leadhunt_api_key',
   PROJECTS: 'leadhunt_projects',
+  CUSTOMERS: 'leadhunt_customers',
   CUSTOM_TOKENS: 'leadhunt_custom_tokens',
   PROMPT_OVERRIDES: 'leadhunt_prompt_overrides',
   STATE_VERSION: 'leadhunt_state_version',
@@ -28,6 +29,7 @@ export async function hydrateFromServer() {
   const { fetchState } = await import('./apiClient');
   const s = await fetchState();
   localStorage.setItem(KEYS.PROJECTS, JSON.stringify(s.projects || []));
+  localStorage.setItem(KEYS.CUSTOMERS, JSON.stringify(s.customers || []));
   localStorage.setItem(
     KEYS.PROMPT_OVERRIDES,
     JSON.stringify(s.promptOverrides || { strategies: {}, staticFollowups: {} })
@@ -49,6 +51,7 @@ async function flushSync() {
     const { pushState } = await import('./apiClient');
     const state = {
       projects: getProjects(),
+      customers: getCustomers(),
       promptOverrides: getPromptOverrides() || { strategies: {}, staticFollowups: {} },
       customTokens: getCustomTokens(),
     };
@@ -169,10 +172,39 @@ export function getProjects() {
   for (const p of projects) {
     if (migrateProjectStrategyKeys(p)) anyMigrated = true;
   }
+  // Client-side backfill: guarantee every project has a customerId. Mirrors
+  // the server's migrateStore so a page hydrated before the server migrated
+  // still has a working grouping layer.
+  if (projects.some((p) => !p.customerId)) {
+    const customers = readCustomersRaw();
+    const byName = new Map();
+    for (const c of customers) byName.set((c.name || '').trim() || 'Uncategorized', c);
+    let customersMutated = false;
+    for (const p of projects) {
+      if (p.customerId) continue;
+      const name = (p.clientName || '').trim() || 'Uncategorized';
+      let cust = byName.get(name);
+      if (!cust) {
+        cust = { id: crypto.randomUUID(), name, createdAt: new Date().toISOString() };
+        byName.set(name, cust);
+        customers.push(cust);
+        customersMutated = true;
+      }
+      p.customerId = cust.id;
+      anyMigrated = true;
+    }
+    if (customersMutated) {
+      localStorage.setItem(KEYS.CUSTOMERS, JSON.stringify(customers));
+    }
+  }
   if (anyMigrated) {
     localStorage.setItem(KEYS.PROJECTS, JSON.stringify(projects));
   }
   return projects;
+}
+
+function readCustomersRaw() {
+  try { return JSON.parse(localStorage.getItem(KEYS.CUSTOMERS)) || []; } catch { return []; }
 }
 
 export function getProject(id) {
@@ -201,6 +233,32 @@ export function saveProject(project) {
 export function deleteProject(id) {
   const projects = getProjects().filter((p) => p.id !== id);
   localStorage.setItem(KEYS.PROJECTS, JSON.stringify(projects));
+  scheduleSync();
+}
+
+// Customers
+export function getCustomers() {
+  return readCustomersRaw();
+}
+
+export function getCustomer(id) {
+  return getCustomers().find((c) => c.id === id) || null;
+}
+
+export function saveCustomer(customer) {
+  const list = getCustomers();
+  const idx = list.findIndex((c) => c.id === customer.id);
+  if (idx >= 0) list[idx] = customer; else list.push(customer);
+  localStorage.setItem(KEYS.CUSTOMERS, JSON.stringify(list));
+  scheduleSync();
+}
+
+// Cascade: deleting a customer deletes every project with that customerId.
+export function deleteCustomer(id) {
+  const remaining = getCustomers().filter((c) => c.id !== id);
+  localStorage.setItem(KEYS.CUSTOMERS, JSON.stringify(remaining));
+  const remainingProjects = getProjects().filter((p) => p.customerId !== id);
+  localStorage.setItem(KEYS.PROJECTS, JSON.stringify(remainingProjects));
   scheduleSync();
 }
 
