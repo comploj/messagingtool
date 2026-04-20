@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { highlightVars, diffOutputWithTemplate, buildVarMap, generateMessage } from '../utils/ai';
+import { diffOutputWithTemplate, buildVarMap, generateMessage } from '../utils/ai';
 import { getApiKey } from '../utils/storage';
 import SequenceEditor from './SequenceEditor';
 import { useToast } from './Toast';
@@ -17,7 +17,8 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
-  const [promptModal, setPromptModal] = useState(null); // { message, seqName }
+  const [promptModal, setPromptModal] = useState(null); // { seqId, message, seqName, output }
+  const [promptDraft, setPromptDraft] = useState('');
   const [outputs, setOutputs] = useState(() => loadOutputs(project.id));
   const [regeneratingId, setRegeneratingId] = useState(null);
   const toast = useToast();
@@ -127,6 +128,25 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
     toast.success(`${seq.name} regenerated`);
   };
 
+  // Seed the prompt-edit draft whenever the viewer modal opens.
+  useEffect(() => {
+    if (promptModal) setPromptDraft(promptModal.message.prompt);
+  }, [promptModal]);
+
+  const handleSavePrompt = () => {
+    if (!promptModal) return;
+    const seqs = project.sequences.map((s) => {
+      if (s.id !== promptModal.seqId) return s;
+      const messages = s.messages.map((m) =>
+        m.id === promptModal.message.id ? { ...m, prompt: promptDraft } : m
+      );
+      return { ...s, messages };
+    });
+    updateProject({ sequences: seqs });
+    toast.success('Message saved');
+    setPromptModal(null);
+  };
+
   const handleDeleteSequence = (id) => {
     if (!confirm('Delete this sequence?')) return;
     const seq = project.sequences.find((s) => s.id === id);
@@ -209,7 +229,7 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
                     <div
                       key={msg.id}
                       className={`seq-cell ${output ? 'seq-cell-filled' : ''}`}
-                      onClick={() => setPromptModal({ message: msg, seqName: seq.name, output })}
+                      onClick={() => setPromptModal({ seqId: seq.id, message: msg, seqName: seq.name, output })}
                     >
                       <div className="seq-cell-badges">
                         <span className={`badge ${msg.type === 'ai' ? 'badge-ai' : 'badge-static'}`}>
@@ -319,24 +339,31 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
                       : <span key={i}>{seg.value}</span>
                   )}
                 </div>
+                {promptDraft !== promptModal.message.prompt && (
+                  <div className="text-secondary text-sm" style={{ marginTop: 6 }}>
+                    Template changed — regenerate to refresh the output.
+                  </div>
+                )}
               </div>
             )}
             <div>
               <div className="form-label" style={{ marginBottom: 8 }}>Prompt Template</div>
-              <div className="prompt-view-template">
-                {highlightVars(promptModal.message.prompt).map((seg, i) =>
-                  seg.type === 'var' ? (
-                    <span key={i} className={`var-chip ${seg.isOp ? 'var-chip-op' : 'var-chip-regular'}`}>{seg.value}</span>
-                  ) : seg.type === 'bracket' ? (
-                    <span key={i} className="var-chip var-chip-bracket">{seg.value}</span>
-                  ) : (
-                    <span key={i}>{seg.value}</span>
-                  )
-                )}
-              </div>
+              <textarea
+                className="textarea textarea-mono"
+                rows={14}
+                value={promptDraft}
+                onChange={(e) => setPromptDraft(e.target.value)}
+              />
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setPromptModal(null)}>Close</button>
+              <button className="btn btn-secondary" onClick={() => setPromptModal(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                onClick={handleSavePrompt}
+                disabled={promptDraft === promptModal.message.prompt}
+              >
+                Save
+              </button>
             </div>
           </div>
         </div>
