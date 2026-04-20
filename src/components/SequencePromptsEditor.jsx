@@ -6,8 +6,24 @@ import {
   getEffectivePrelude,
   getEffectivePostlude,
   applyPromptOverrides,
+  isCustomStrategy,
+  deleteCustomStrategy,
 } from '../utils/promptOverrides';
 import { useToast } from './Toast';
+
+function slugify(str) {
+  return String(str || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+function uniqueKey(base, existing) {
+  if (!existing.includes(base)) return base;
+  let i = 2;
+  while (existing.includes(`${base}-${i}`)) i++;
+  return `${base}-${i}`;
+}
 
 function buildInitialDraft() {
   const strategies = {};
@@ -15,6 +31,7 @@ function buildInitialDraft() {
     const en = getEffectiveStrategy(key, 'en');
     const de = getEffectiveStrategy(key, 'de');
     strategies[key] = {
+      custom: isCustomStrategy(key),
       delayDays: en.delayDays,
       en: { displayName: en.displayName, description: en.description, prompt: en.prompt },
       de: { displayName: de.displayName, description: de.description, prompt: de.prompt },
@@ -38,8 +55,10 @@ export default function SequencePromptsEditor() {
   const [framingOpen, setFramingOpen] = useState(false);
   const [followupsOpen, setFollowupsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [newForm, setNewForm] = useState({ name: '', description: '', prompt: '', delayDays: 1 });
   const toast = useToast();
-  const keys = useMemo(() => getEffectiveStrategyKeys(), []);
+  const keys = useMemo(() => Object.keys(draft.strategies), [draft.strategies]);
 
   const updateStrategy = (key, patch) => {
     setDraft((d) => ({
@@ -90,6 +109,7 @@ export default function SequencePromptsEditor() {
       for (const key of keys) {
         const s = draft.strategies[key];
         overrides.strategies[key] = {
+          ...(s.custom ? { custom: true } : {}),
           delayDays: Number(s.delayDays) || 1,
           en: { displayName: s.en.displayName, description: s.en.description, prompt: s.en.prompt },
           de: { displayName: s.de.displayName, description: s.de.description, prompt: s.de.prompt },
@@ -105,6 +125,72 @@ export default function SequencePromptsEditor() {
   };
 
   const toggleExpand = (key) => setExpanded((e) => ({ ...e, [key]: !e[key] }));
+
+  const handleCreateCustom = () => {
+    const name = newForm.name.trim();
+    if (!name) { toast.error('Name is required'); return; }
+    const prompt = newForm.prompt.trim();
+    if (!prompt) { toast.error('Prompt template is required'); return; }
+    const base = slugify(name) || 'custom-strategy';
+    const key = uniqueKey(base, Object.keys(draft.strategies));
+    const delayDays = Number(newForm.delayDays) || 1;
+    const entry = {
+      custom: true,
+      delayDays,
+      en: { displayName: name, description: newForm.description, prompt },
+      de: { displayName: name, description: newForm.description, prompt },
+    };
+    const nextDraft = {
+      ...draft,
+      strategies: { ...draft.strategies, [key]: entry },
+    };
+    setDraft(nextDraft);
+    setExpanded((e) => ({ ...e, [key]: true }));
+
+    // Persist immediately so reload keeps it
+    try {
+      const overrides = {
+        strategies: {},
+        staticFollowups: { en: nextDraft.staticFollowups.en, de: nextDraft.staticFollowups.de },
+        prelude: { en: nextDraft.framing.en.prelude, de: nextDraft.framing.de.prelude },
+        postlude: { en: nextDraft.framing.en.postlude, de: nextDraft.framing.de.postlude },
+      };
+      for (const k of Object.keys(nextDraft.strategies)) {
+        const s = nextDraft.strategies[k];
+        overrides.strategies[k] = {
+          ...(s.custom ? { custom: true } : {}),
+          delayDays: Number(s.delayDays) || 1,
+          en: { displayName: s.en.displayName, description: s.en.description, prompt: s.en.prompt },
+          de: { displayName: s.de.displayName, description: s.de.description, prompt: s.de.prompt },
+        };
+      }
+      applyPromptOverrides(overrides);
+      toast.success('Custom strategy added');
+    } catch (err) {
+      toast.error('Could not save: ' + err.message);
+    }
+
+    setNewOpen(false);
+    setNewForm({ name: '', description: '', prompt: '', delayDays: 1 });
+  };
+
+  const handleDeleteCustom = (key) => {
+    const s = draft.strategies[key];
+    const label = s?.en?.displayName || s?.de?.displayName || key;
+    if (!confirm(`Delete custom strategy "${label}"? This cannot be undone.`)) return;
+    deleteCustomStrategy(key);
+    setDraft((d) => {
+      const next = { ...d, strategies: { ...d.strategies } };
+      delete next.strategies[key];
+      return next;
+    });
+    setExpanded((e) => {
+      const next = { ...e };
+      delete next[key];
+      return next;
+    });
+    toast.success('Strategy deleted');
+  };
 
   return (
     <div className="settings-section">
@@ -126,6 +212,9 @@ export default function SequencePromptsEditor() {
         </div>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? <><span className="spinner spinner-sm"></span> Saving...</> : 'Save'}
+        </button>
+        <button className="btn btn-secondary" onClick={() => setNewOpen(true)} title="Add new strategy">
+          + New Strategy
         </button>
       </div>
       <p className="text-secondary text-sm" style={{ marginTop: 0, marginBottom: 16 }}>
@@ -292,17 +381,86 @@ export default function SequencePromptsEditor() {
                     onChange={(e) => updateStrategyLang(key, lang, { prompt: e.target.value })}
                   />
                 </div>
+                {s.custom && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteCustom(key)}>
+                      Delete strategy
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         );
       })}
 
-      <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button className="btn btn-secondary" onClick={() => setNewOpen(true)}>
+          + New Strategy
+        </button>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? <><span className="spinner spinner-sm"></span> Saving...</> : 'Save'}
         </button>
       </div>
+
+      {newOpen && (
+        <div className="modal-overlay" onClick={() => setNewOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>New Custom Strategy</h2>
+              <button className="btn btn-ghost btn-sm" onClick={() => setNewOpen(false)}>&times;</button>
+            </div>
+            <p className="text-secondary text-sm" style={{ marginTop: 0, marginBottom: 12 }}>
+              Define a new sequence strategy. You can refine per-language text after creating it.
+            </p>
+            <div className="form-group mb-16">
+              <label className="form-label">NAME</label>
+              <input
+                className="input"
+                value={newForm.name}
+                onChange={(e) => setNewForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Industry Case Study"
+                autoFocus
+              />
+            </div>
+            <div className="form-group mb-16">
+              <label className="form-label">DESCRIPTION (OPTIONAL)</label>
+              <textarea
+                className="textarea"
+                rows={2}
+                value={newForm.description}
+                onChange={(e) => setNewForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="Short description of when to use this strategy"
+              />
+            </div>
+            <div className="form-group mb-16">
+              <label className="form-label">MSG 1 DELAY (DAYS)</label>
+              <input
+                className="input"
+                type="number"
+                min={1}
+                style={{ width: 140 }}
+                value={newForm.delayDays}
+                onChange={(e) => setNewForm((f) => ({ ...f, delayDays: parseInt(e.target.value) || 1 }))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">PROMPT TEMPLATE</label>
+              <textarea
+                className="textarea textarea-mono"
+                rows={10}
+                value={newForm.prompt}
+                onChange={(e) => setNewForm((f) => ({ ...f, prompt: e.target.value }))}
+                placeholder="Write the message body — the prompt framing (prelude/postlude) is added automatically."
+              />
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setNewOpen(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleCreateCustom}>Create</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

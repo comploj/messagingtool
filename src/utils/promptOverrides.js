@@ -59,7 +59,25 @@ export function getEffectiveStrategy(key, lang) {
 }
 
 export function getEffectiveStrategyKeys() {
-  return getFactoryStrategyKeys();
+  const factoryKeys = getFactoryStrategyKeys();
+  const o = loadOverrides();
+  const customKeys = Object.keys(o.strategies || {}).filter(
+    (k) => o.strategies[k] && o.strategies[k].custom === true && !factoryKeys.includes(k)
+  );
+  return [...factoryKeys, ...customKeys];
+}
+
+export function isCustomStrategy(key) {
+  const o = loadOverrides();
+  return !!(o.strategies?.[key]?.custom);
+}
+
+export function deleteCustomStrategy(key) {
+  const o = loadOverrides();
+  if (!o.strategies || !o.strategies[key] || !o.strategies[key].custom) return;
+  const next = { ...o, strategies: { ...o.strategies } };
+  delete next.strategies[key];
+  setPromptOverrides(next);
 }
 
 export function getEffectiveStrategyDisplayName(key, lang) {
@@ -82,7 +100,7 @@ export function getEffectiveStaticFollowups(lang) {
 // Used on Save to diff old vs new and decide which project fields can be overwritten.
 function buildSnapshot() {
   const strategies = {};
-  for (const key of getFactoryStrategyKeys()) {
+  for (const key of getEffectiveStrategyKeys()) {
     const en = getEffectiveStrategy(key, 'en');
     const de = getEffectiveStrategy(key, 'de');
     strategies[key] = {
