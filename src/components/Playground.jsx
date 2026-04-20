@@ -100,7 +100,7 @@ export default function Playground({ project }) {
     const varMap = buildVarMap(lead, project);
     setLoadingIds((prev) => new Set(prev).add(message.id));
     try {
-      const result = await generateMessage(message, varMap, apiKey);
+      const result = await generateMessage(message, varMap, apiKey, project?.language || 'en');
       setOutputs((prev) => ({ ...prev, [message.id]: result }));
     } catch (err) {
       toast.error('Generation failed: ' + err.message);
@@ -125,7 +125,7 @@ export default function Playground({ project }) {
       const varMap = buildVarMap(lead, project);
       setLoadingIds((prev) => new Set(prev).add(msg.id));
       try {
-        const result = await generateMessage(msg, varMap, apiKey);
+        const result = await generateMessage(msg, varMap, apiKey, project?.language || 'en');
         setOutputs((prev) => ({ ...prev, [msg.id]: result }));
       } catch (err) {
         toast.error(`Failed on ${msg.label}: ${err.message}`);

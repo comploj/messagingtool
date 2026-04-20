@@ -362,12 +362,24 @@ export function substituteVariables(template, varMap) {
   return result;
 }
 
-export async function generateMessage(message, varMap, apiKey) {
-  const resolved = substituteVariables(message.prompt, varMap);
+export async function generateMessage(message, varMap, apiKey, lang = 'en') {
   if (message.type === 'static') {
-    return resolved;
+    return substituteVariables(message.prompt, varMap);
   }
-  // AI message
+  // AI message: wrap the body in the globally-configured prelude/postlude,
+  // unless this message was flagged as having its own custom framing.
+  let full;
+  if (message.hasCustomFraming) {
+    full = message.prompt;
+  } else {
+    // Dynamic import avoids a circular import between ai.js and promptOverrides.js
+    // at module-initialization time (storage.js → prompts.js → ai.js in some bundlers).
+    const { getEffectivePrelude, getEffectivePostlude } = await import('./promptOverrides');
+    const pre = getEffectivePrelude(lang);
+    const post = getEffectivePostlude(lang);
+    full = `${pre}\n---\n${message.prompt}\n---\n${post}`;
+  }
+  const resolved = substituteVariables(full, varMap);
   return await callClaude(resolved, apiKey);
 }
 

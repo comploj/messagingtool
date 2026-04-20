@@ -3,6 +3,8 @@ import {
   getEffectiveStrategyKeys,
   getEffectiveStrategy,
   getEffectiveStaticFollowups,
+  getEffectivePrelude,
+  getEffectivePostlude,
   applyPromptOverrides,
 } from '../utils/promptOverrides';
 import { useToast } from './Toast';
@@ -22,7 +24,11 @@ function buildInitialDraft() {
     en: getEffectiveStaticFollowups('en').map((f) => ({ label: f.label, delayDays: f.delayDays, prompt: f.prompt })),
     de: getEffectiveStaticFollowups('de').map((f) => ({ label: f.label, delayDays: f.delayDays, prompt: f.prompt })),
   };
-  return { strategies, staticFollowups };
+  const framing = {
+    en: { prelude: getEffectivePrelude('en'), postlude: getEffectivePostlude('en') },
+    de: { prelude: getEffectivePrelude('de'), postlude: getEffectivePostlude('de') },
+  };
+  return { strategies, staticFollowups, framing };
 }
 
 export default function SequencePromptsEditor() {
@@ -63,12 +69,21 @@ export default function SequencePromptsEditor() {
     });
   };
 
+  const updateFraming = (lg, patch) => {
+    setDraft((d) => ({
+      ...d,
+      framing: { ...d.framing, [lg]: { ...d.framing[lg], ...patch } },
+    }));
+  };
+
   const handleSave = () => {
     setSaving(true);
     try {
       const overrides = {
         strategies: {},
         staticFollowups: { en: draft.staticFollowups.en, de: draft.staticFollowups.de },
+        prelude: { en: draft.framing.en.prelude, de: draft.framing.de.prelude },
+        postlude: { en: draft.framing.en.postlude, de: draft.framing.de.postlude },
       };
       for (const key of keys) {
         const s = draft.strategies[key];
@@ -115,6 +130,32 @@ export default function SequencePromptsEditor() {
         Edits apply to all projects where the sequence still matches the current global default.
         Per-project customizations are preserved.
       </p>
+
+      {/* Prompt framing — shared across every strategy; only visible here. */}
+      <div className="settings-section" style={{ marginBottom: 16 }}>
+        <h4 style={{ marginTop: 0 }}>Prompt framing — shared (your IP, {lang === 'de' ? 'Deutsch' : 'English'})</h4>
+        <p className="text-secondary text-sm" style={{ marginTop: 0 }}>
+          Prepended and appended to every AI message at generate time. Hidden from per-sequence editors.
+        </p>
+        <div className="form-group">
+          <label className="form-label">PRELUDE ({lang === 'de' ? 'DEUTSCH' : 'ENGLISH'})</label>
+          <textarea
+            className="textarea textarea-mono"
+            rows={12}
+            value={draft.framing[lang].prelude}
+            onChange={(e) => updateFraming(lang, { prelude: e.target.value })}
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label">POSTLUDE ({lang === 'de' ? 'DEUTSCH' : 'ENGLISH'})</label>
+          <textarea
+            className="textarea textarea-mono"
+            rows={8}
+            value={draft.framing[lang].postlude}
+            onChange={(e) => updateFraming(lang, { postlude: e.target.value })}
+          />
+        </div>
+      </div>
 
       {/* Shared follow-ups */}
       <div className="settings-section" style={{ marginBottom: 16 }}>
@@ -203,9 +244,12 @@ export default function SequencePromptsEditor() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">MESSAGE 1 PROMPT ({lang === 'de' ? 'DEUTSCH' : 'ENGLISH'})</label>
+                  <label className="form-label">MESSAGE TEMPLATE ({lang === 'de' ? 'DEUTSCH' : 'ENGLISH'})</label>
+                  <p className="text-secondary text-sm" style={{ marginTop: -4, marginBottom: 6 }}>
+                    Only the message body — the prompt framing around it lives in the card at the top.
+                  </p>
                   <textarea
-                    className="textarea"
+                    className="textarea textarea-mono"
                     rows={14}
                     value={s[lang].prompt}
                     onChange={(e) => updateStrategyLang(key, lang, { prompt: e.target.value })}

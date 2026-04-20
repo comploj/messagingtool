@@ -8,9 +8,14 @@ const KEYS = {
   PROMPT_OVERRIDES: 'leadhunt_prompt_overrides',
 };
 
+const PROMPT_SEP = '\n---\n';
+const PRELUDE_SIGNATURE = /^You are a LinkedIn message generator/;
+
 // Lazy migration: fill in seq.strategyKey on legacy sequences so the
-// prompt-overrides editor can match them. Mutates `project` in place.
-// Returns true if anything changed.
+// prompt-overrides editor can match them, AND strip legacy full-prompt
+// AI messages down to just their body (prelude + postlude are now stored
+// globally in Settings and composed at generate time). Mutates `project`
+// in place. Returns true if anything changed.
 function migrateProjectStrategyKeys(project) {
   if (!project || !Array.isArray(project.sequences)) return false;
   const keys = new Set(getFactoryStrategyKeys());
@@ -19,6 +24,24 @@ function migrateProjectStrategyKeys(project) {
     if (seq && seq.strategyKey === undefined) {
       seq.strategyKey = keys.has(seq.name) ? seq.name : null;
       changed = true;
+    }
+    if (!Array.isArray(seq?.messages)) continue;
+    for (const msg of seq.messages) {
+      if (!msg || msg.type !== 'ai') continue;
+      if (msg.hasCustomFraming) continue;
+      if (typeof msg.prompt !== 'string') continue;
+      const parts = msg.prompt.split(PROMPT_SEP);
+      if (parts.length >= 3) {
+        msg.prompt = parts[1];
+        changed = true;
+      } else if (PRELUDE_SIGNATURE.test(msg.prompt)) {
+        // Starts with the standard prelude but lacks clean separators —
+        // the user edited it into something non-splittable. Flag so we
+        // don't double-wrap at generate time.
+        msg.hasCustomFraming = true;
+        changed = true;
+      }
+      // else: no recognizable framing; treat as already-body. Nothing to do.
     }
   }
   return changed;

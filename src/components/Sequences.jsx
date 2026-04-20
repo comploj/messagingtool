@@ -115,7 +115,7 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
     const currentOutputs = { ...outputs };
     for (const msg of seq.messages) {
       try {
-        const result = await generateMessage(msg, varMap, apiKey);
+        const result = await generateMessage(msg, varMap, apiKey, project.language || 'en');
         currentOutputs[msg.id] = result;
         setOutputs({ ...currentOutputs });
         localStorage.setItem(OUTPUTS_KEY(project.id), JSON.stringify(currentOutputs));
@@ -347,7 +347,7 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
               </div>
             )}
             <div>
-              <div className="form-label" style={{ marginBottom: 8 }}>Prompt Template</div>
+              <div className="form-label" style={{ marginBottom: 8 }}>Message Template</div>
               <textarea
                 className="textarea textarea-mono"
                 rows={14}

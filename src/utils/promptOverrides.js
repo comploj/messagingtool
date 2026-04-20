@@ -1,13 +1,45 @@
-import { getFactoryStrategy, getFactoryStrategyKeys, getFactoryStaticFollowups } from './prompts';
+import {
+  getFactoryStrategy,
+  getFactoryStrategyKeys,
+  getFactoryStaticFollowups,
+  getFactoryPrelude,
+  getFactoryPostlude,
+} from './prompts';
 import { getPromptOverrides, setPromptOverrides, getProjects, saveProject } from './storage';
 
 const DEFAULT_FIRST_MESSAGE_DELAY = 1;
+const SEP = '\n---\n';
 
 export function loadOverrides() {
-  return getPromptOverrides() || { strategies: {}, staticFollowups: {} };
+  const o = getPromptOverrides() || { strategies: {}, staticFollowups: {} };
+  // Migrate legacy full-prompt overrides down to just the body so the editor
+  // UI and downstream composition never see prelude/postlude mixed in.
+  let mutated = false;
+  for (const key of Object.keys(o.strategies || {})) {
+    for (const lang of ['en', 'de']) {
+      const lv = o.strategies[key][lang];
+      if (!lv || typeof lv.prompt !== 'string') continue;
+      const parts = lv.prompt.split(SEP);
+      if (parts.length >= 3) {
+        lv.prompt = parts[1];
+        mutated = true;
+      }
+    }
+  }
+  if (mutated) setPromptOverrides(o);
+  return o;
 }
 export function saveOverrides(o) {
   setPromptOverrides(o);
+}
+
+export function getEffectivePrelude(lang) {
+  const o = loadOverrides();
+  return o.prelude?.[lang] ?? getFactoryPrelude(lang);
+}
+export function getEffectivePostlude(lang) {
+  const o = loadOverrides();
+  return o.postlude?.[lang] ?? getFactoryPostlude(lang);
 }
 
 // Returns the effective (override-or-factory) values for a strategy in a language.

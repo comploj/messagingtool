@@ -1408,3 +1408,40 @@ export function getFactoryStrategy(key, lang) {
   const l = s[lang] || s.en || {};
   return { description: l.description || '', prompt: l.prompt || '' };
 }
+
+// Prompt framing (prelude + postlude) — extracted once at module load from the
+// first strategy since all 14 share identical framing. The per-strategy .prompt
+// fields are trimmed in place to their body-only content so every downstream
+// reader (override layer, editors) sees only the creative middle slice.
+const SEP = '\n---\n';
+const FACTORY_PRELUDE = { en: '', de: '' };
+const FACTORY_POSTLUDE = { en: '', de: '' };
+
+(function extractFraming() {
+  const first = Object.values(STRATEGIES)[0];
+  if (!first) return;
+  for (const lang of ['en', 'de']) {
+    const full = first[lang]?.prompt;
+    if (!full) continue;
+    const parts = full.split(SEP);
+    if (parts.length >= 3) {
+      FACTORY_PRELUDE[lang] = parts[0];
+      FACTORY_POSTLUDE[lang] = parts.slice(2).join(SEP);
+    }
+  }
+  for (const key of Object.keys(STRATEGIES)) {
+    for (const lang of ['en', 'de']) {
+      const e = STRATEGIES[key][lang];
+      if (!e?.prompt) continue;
+      const parts = e.prompt.split(SEP);
+      if (parts.length >= 3) e.prompt = parts[1];
+    }
+  }
+})();
+
+export function getFactoryPrelude(lang) {
+  return FACTORY_PRELUDE[lang] ?? FACTORY_PRELUDE.en;
+}
+export function getFactoryPostlude(lang) {
+  return FACTORY_POSTLUDE[lang] ?? FACTORY_POSTLUDE.en;
+}
