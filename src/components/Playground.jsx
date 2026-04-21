@@ -78,6 +78,7 @@ export default function Playground({ project }) {
       const info = await scrapeCompanyInfo(lead.companyWebsite, apiKey);
       setLead((prev) => ({
         ...prev,
+        company: info.companyName || prev.company,
         companyDescription: info.companyDescription || '',
         companyIndustry: info.industry || '',
         companySize: info.size || '',

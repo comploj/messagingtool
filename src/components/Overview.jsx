@@ -83,7 +83,7 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
         toast.success('Value proposition extracted');
       } else {
         const langInstr = lang === 'de' ? 'Write ALL field values in German.' : 'Write ALL field values in English.';
-        const prompt = `You are a data extraction assistant. Given the following website text, extract company information and return ONLY a valid JSON object with these fields:\n- "companyDescription": A 2-3 sentence description of what the company does\n- "industry": The company's industry\n- "size": Estimated company size (e.g. "10-50 employees", "Enterprise", "Startup") — use "Unknown" if not clear\n- "location": Company headquarters location — use "Unknown" if not clear\n- "targetCustomers": Who their target customers are\n- "keyProblems": What key problems they solve\n\n${langInstr}\n\nWebsite text:\n${text}\n\nReturn ONLY the JSON object, no markdown, no explanation.`;
+        const prompt = `You are a data extraction assistant. Given the following website text, extract company information and return ONLY a valid JSON object with these fields:\n- "companyName": The official company name as used on the website (not the URL or a product line) — required\n- "companyDescription": A 2-3 sentence description of what the company does\n- "industry": The company's industry\n- "size": Estimated company size (e.g. "10-50 employees", "Enterprise", "Startup") — use "Unknown" if not clear\n- "location": Company headquarters location — use "Unknown" if not clear\n- "targetCustomers": Who their target customers are\n- "keyProblems": What key problems they solve\n\n${langInstr}\n\nWebsite text:\n${text}\n\nReturn ONLY the JSON object, no markdown, no explanation.`;
         const response = await callClaude(prompt, apiKey);
         let info;
         try { info = JSON.parse(response); } catch {
@@ -93,6 +93,7 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
         }
         setLead((prev) => ({
           ...prev,
+          company: info.companyName || prev.company,
           companyDescription: info.companyDescription || '',
           companyIndustry: info.industry || '',
           companySize: info.size || '',
@@ -138,6 +139,7 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
       const info = await scrapeCompanyInfo(lead.companyWebsite, apiKey, lang);
       setLead((prev) => ({
         ...prev,
+        company: info.companyName || prev.company,
         companyDescription: info.companyDescription || '',
         companyIndustry: info.industry || '',
         companySize: info.size || '',

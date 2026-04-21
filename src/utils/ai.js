@@ -158,6 +158,7 @@ export async function scrapeCompanyInfo(url, apiKey, lang = 'en') {
   if (!text) {
     const domain = new URL(url).hostname.replace('www.', '');
     const prompt = `You are a data extraction assistant. I could not scrape the website ${url} directly. Based on your knowledge of the company "${domain}", provide company information as a JSON object with these fields:
+- "companyName": The official company name (as used on the website / in the market — not the URL)
 - "companyDescription": A 2-3 sentence description of what the company does
 - "industry": The company's industry
 - "size": Estimated company size — use "Unknown" if not clear
@@ -181,6 +182,7 @@ Return ONLY the JSON object, no markdown, no explanation.`;
   }
 
   const prompt = `You are a data extraction assistant. Given the following ${source === 'search' ? 'search results about a company' : 'website text'}, extract company information and return ONLY a valid JSON object with these fields:
+- "companyName": The official company name as used on the website (not the URL or a product line) — required
 - "companyDescription": A 2-3 sentence description of what the company does
 - "industry": The company's industry
 - "size": Estimated company size (e.g. "10-50 employees", "Enterprise", "Startup") — use "Unknown" if not clear
