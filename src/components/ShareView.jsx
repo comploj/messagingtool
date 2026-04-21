@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchShare } from '../utils/apiClient';
+import { diffOutputWithTemplate } from '../utils/ai';
 
 // Public, read-only view of a project's Sequences tab.
 // No auth required. No editing controls. No prompt templates exposed.
@@ -156,7 +157,13 @@ export default function ShareView({ token }) {
                           </span>
                         </div>
                         <div className="seq-cell-text">
-                          {output ? output : <em style={{ color: 'var(--text-secondary)' }}>Not generated yet</em>}
+                          {output
+                            ? diffOutputWithTemplate(msg.prompt, output).map((seg, si) =>
+                                seg.type === 'generated'
+                                  ? <span key={si} className="output-generated">{seg.value}</span>
+                                  : <span key={si}>{seg.value}</span>
+                              )
+                            : <em style={{ color: 'var(--text-secondary)' }}>Not generated yet</em>}
                         </div>
                       </div>
                     );
