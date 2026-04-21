@@ -24,6 +24,14 @@ export async function fetchState() {
   return res.json();
 }
 
+// Public read-only share — no auth header.
+export async function fetchShare(token) {
+  const res = await fetch('/api/share/' + encodeURIComponent(token));
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('fetch_share_failed_' + res.status);
+  return res.json();
+}
+
 // Returns one of:
 //   { ok: true, version }
 //   { conflict: true, current }  — caller should hydrate to `current`

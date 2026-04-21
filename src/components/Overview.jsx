@@ -11,8 +11,7 @@ const emptyLead = {
   companySize: '', companyLocation: '', location: '', anrede: '',
 };
 
-const LEAD_KEY = (id) => `leadhunt_lead_${id}`;
-const OUTPUTS_KEY = (id) => `leadhunt_outputs_${id}`;
+const OUTPUTS_KEY = (id) => `leadhunt_outputs_${id}`; // deprecated, migrated on read
 const SELECTED_SEQS_KEY = (id) => `leadhunt_selected_seqs_${id}`;
 
 function loadJson(key, fallback) {
@@ -23,7 +22,11 @@ function loadJson(key, fallback) {
 export default function Overview({ project, updateProject, recentlyDeletedSeqs = [], restoreDeletedSeq }) {
   const [scraping, setScraping] = useState(false);
   const [scrapingCompany, setScrapingCompany] = useState(false);
-  const [lead, setLead] = useState(() => loadJson(LEAD_KEY(project.id), emptyLead));
+  const lead = project.lead || emptyLead;
+  const setLead = (updater) => {
+    const nextLead = typeof updater === 'function' ? updater(lead) : updater;
+    updateProject({ lead: nextLead });
+  };
   const [selectedSeqs, setSelectedSeqs] = useState(
     () => loadJson(SELECTED_SEQS_KEY(project.id), project.sequences.map((s) => s.id))
   );
@@ -36,11 +39,6 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
   const [extractingDocs, setExtractingDocs] = useState(false);
   const docFileInputRef = useRef(null);
   const toast = useToast();
-
-  // Persist lead and selection
-  useEffect(() => {
-    localStorage.setItem(LEAD_KEY(project.id), JSON.stringify(lead));
-  }, [lead, project.id]);
 
   useEffect(() => {
     localStorage.setItem(SELECTED_SEQS_KEY(project.id), JSON.stringify(selectedSeqs));
@@ -197,7 +195,7 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
     if (seqs.length === 0) { toast.error('Select at least one sequence'); return; }
 
     setGenerating(true);
-    const outputs = loadJson(OUTPUTS_KEY(project.id), {});
+    const outputs = { ...(project.outputs || {}) };
     const varMap = buildVarMap(lead, project);
     let count = 0;
     const total = seqs.reduce((sum, s) => sum + s.messages.filter((m) => m.type === 'ai').length, 0)
@@ -210,7 +208,7 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
         try {
           const result = await generateMessage(msg, varMap, apiKey, lang);
           outputs[msg.id] = result;
-          localStorage.setItem(OUTPUTS_KEY(project.id), JSON.stringify(outputs));
+          updateProject({ outputs: { ...outputs } });
         } catch (err) {
           toast.error(`Failed: ${seq.name} > ${msg.label}: ${err.message}`);
         }

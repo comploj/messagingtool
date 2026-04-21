@@ -207,13 +207,58 @@ function readCustomersRaw() {
   try { return JSON.parse(localStorage.getItem(KEYS.CUSTOMERS)) || []; } catch { return []; }
 }
 
+// Lazy migration: move per-project lead / outputs from their old localStorage
+// keys into the project object itself so they sync to the server and become
+// available to the read-only share view. Runs once per project — idempotent.
+function migrateLeadAndOutputs(project) {
+  if (!project) return false;
+  let changed = false;
+  if (!project.lead) {
+    try {
+      const raw = localStorage.getItem(`leadhunt_lead_${project.id}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          project.lead = parsed;
+          changed = true;
+        }
+      }
+    } catch {}
+    if (changed) localStorage.removeItem(`leadhunt_lead_${project.id}`);
+  }
+  if (!project.outputs) {
+    try {
+      const raw = localStorage.getItem(`leadhunt_outputs_${project.id}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          project.outputs = parsed;
+          changed = true;
+        }
+      }
+    } catch {}
+    if (changed) localStorage.removeItem(`leadhunt_outputs_${project.id}`);
+  }
+  return changed;
+}
+
 export function getProject(id) {
-  const project = getProjects().find((p) => p.id === id) || null;
-  if (project && typeof project.valueProposition === 'string') {
+  const projects = getProjects();
+  const project = projects.find((p) => p.id === id) || null;
+  if (!project) return null;
+  if (typeof project.valueProposition === 'string') {
     project.valueProposition = {
       summary: project.valueProposition,
       elevatorPitch: '', painPoints: '', usps: '', urgency: '', services: '', benefits: '',
     };
+  }
+  if (migrateLeadAndOutputs(project)) {
+    // Persist migration back to localStorage + trigger sync so lead/outputs
+    // land on the server (needed for live share to see them).
+    const idx = projects.findIndex((p) => p.id === project.id);
+    if (idx >= 0) projects[idx] = project;
+    localStorage.setItem(KEYS.PROJECTS, JSON.stringify(projects));
+    scheduleSync();
   }
   return project;
 }

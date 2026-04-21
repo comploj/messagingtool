@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { processAuth, readStore, writeStore } from './server/state.js'
+import { processAuth, readStore, writeStore, processShare } from './server/state.js'
 
 async function readJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -62,6 +62,15 @@ export default defineConfig({
             res.statusCode = 502;
             res.end(JSON.stringify({ error: err.message }));
           }
+        });
+
+        server.middlewares.use('/api/share', async (req, res) => {
+          if (req.method !== 'GET') return sendJson(res, 405, { error: 'method_not_allowed' });
+          // path like /api/share/:token — after `use` strips the mount, req.url is `/:token`
+          const token = (req.url || '').split('?')[0].replace(/^\//, '').trim();
+          const snap = await processShare(token);
+          if (!snap) return sendJson(res, 404, { error: 'not_found' });
+          sendJson(res, 200, snap);
         });
 
         server.middlewares.use('/api/auth', async (req, res) => {

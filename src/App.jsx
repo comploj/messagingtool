@@ -6,9 +6,24 @@ import Projects from './components/Projects';
 import CustomerView from './components/CustomerView';
 import ProjectView from './components/ProjectView';
 import Settings from './components/Settings';
+import ShareView from './components/ShareView';
 import { useToast } from './components/Toast';
 
+function detectShareToken() {
+  if (typeof window === 'undefined') return null;
+  const m = window.location.pathname.match(/^\/share\/([^/?#]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 export default function App() {
+  const shareToken = detectShareToken();
+  if (shareToken) {
+    return <ShareView token={shareToken} />;
+  }
+  return <AppAuthed />;
+}
+
+function AppAuthed() {
   const [authed, setAuthed] = useState(!!getAuth());
   const [hydrated, setHydrated] = useState(!getAuth());
   const [view, setView] = useState('projects'); // 'projects' | 'customer' | 'project' | 'settings'

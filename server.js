@@ -1,7 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { requireAuth, handleAuth, handleGetState, handlePutState } from './server/state.js';
+import { requireAuth, handleAuth, handleGetState, handlePutState, handleGetShare } from './server/state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 8080;
@@ -13,6 +13,9 @@ app.use(express.json({ limit: '4mb' }));
 app.get('/api/auth', requireAuth, handleAuth);
 app.get('/api/state', requireAuth, handleGetState);
 app.put('/api/state', requireAuth, handlePutState);
+
+// Public read-only share endpoint — NO auth required
+app.get('/api/share/:token', handleGetShare);
 
 // Scrape proxy endpoint
 app.get('/api/scrape', async (req, res) => {

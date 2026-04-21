@@ -124,8 +124,80 @@ export async function handlePutState(req, res) {
   res.json({ ok: true, version: next.version });
 }
 
+// Public read-only share — no auth. Looks up a project by its shareToken
+// and returns a minimal view-only projection with sequences + generated
+// outputs + lead info. Viewers can see what the author generated but cannot
+// see prompt templates, API keys, or any other project.
+export async function handleGetShare(req, res) {
+  const token = String(req.params?.token || '').trim();
+  if (!token) return res.status(404).json({ error: 'not_found' });
+  const store = await readStore();
+  const project = (store.projects || []).find((p) => p.shareToken === token);
+  if (!project) return res.status(404).json({ error: 'not_found' });
+  const customer = (store.customers || []).find((c) => c.id === project.customerId);
+  const snapshot = {
+    projectName: project.name || '',
+    customerName: customer?.name || project.clientName || '',
+    language: project.language || 'en',
+    sequences: (project.sequences || []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description || '',
+      messages: (s.messages || []).map((m) => ({
+        id: m.id,
+        label: m.label,
+        type: m.type,
+        delayDays: m.delayDays,
+      })),
+    })),
+    outputs: project.outputs || {},
+    lead: project.lead ? {
+      firstName: project.lead.firstName || '',
+      lastName: project.lead.lastName || '',
+      position: project.lead.position || '',
+      company: project.lead.company || '',
+      companyWebsite: project.lead.companyWebsite || '',
+    } : null,
+  };
+  res.json(snapshot);
+}
+
 // Framework-agnostic helpers used by the Vite dev middleware, which doesn't
 // pass an Express req/res pair.
 export async function processAuth(token) {
   return isValidToken(token);
+}
+
+// For Vite dev middleware to handle /api/share/:token without Express req/res
+export async function processShare(token) {
+  const t = String(token || '').trim();
+  if (!t) return null;
+  const store = await readStore();
+  const project = (store.projects || []).find((p) => p.shareToken === t);
+  if (!project) return null;
+  const customer = (store.customers || []).find((c) => c.id === project.customerId);
+  return {
+    projectName: project.name || '',
+    customerName: customer?.name || project.clientName || '',
+    language: project.language || 'en',
+    sequences: (project.sequences || []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description || '',
+      messages: (s.messages || []).map((m) => ({
+        id: m.id,
+        label: m.label,
+        type: m.type,
+        delayDays: m.delayDays,
+      })),
+    })),
+    outputs: project.outputs || {},
+    lead: project.lead ? {
+      firstName: project.lead.firstName || '',
+      lastName: project.lead.lastName || '',
+      position: project.lead.position || '',
+      company: project.lead.company || '',
+      companyWebsite: project.lead.companyWebsite || '',
+    } : null,
+  };
 }

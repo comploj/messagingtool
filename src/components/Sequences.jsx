@@ -4,14 +4,6 @@ import { getApiKey } from '../utils/storage';
 import SequenceEditor from './SequenceEditor';
 import { useToast } from './Toast';
 
-const OUTPUTS_KEY = (id) => `leadhunt_outputs_${id}`;
-const LEAD_KEY = (id) => `leadhunt_lead_${id}`;
-
-function loadOutputs(projectId) {
-  try { return JSON.parse(localStorage.getItem(OUTPUTS_KEY(projectId))) || {}; }
-  catch { return {}; }
-}
-
 export default function Sequences({ project, updateProject, addDeletedSeq }) {
   const [editingId, setEditingId] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -19,7 +11,7 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
   const [newDesc, setNewDesc] = useState('');
   const [promptModal, setPromptModal] = useState(null); // { seqId, message, seqName, output }
   const [promptDraft, setPromptDraft] = useState('');
-  const [outputs, setOutputs] = useState(() => loadOutputs(project.id));
+  const outputs = project.outputs || {};
   const [regeneratingId, setRegeneratingId] = useState(null);
   const toast = useToast();
   const wrapperRef = useRef(null);
@@ -55,18 +47,8 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
     return () => observer.disconnect();
   }, [project.sequences.length]);
 
-  // Re-read outputs when tab is visited (they may have been generated in Overview)
-  useEffect(() => {
-    const refresh = () => setOutputs(loadOutputs(project.id));
-    refresh();
-    window.addEventListener('storage', refresh);
-    // Also poll briefly since storage event doesn't fire in same tab
-    const interval = setInterval(refresh, 1000);
-    return () => {
-      window.removeEventListener('storage', refresh);
-      clearInterval(interval);
-    };
-  }, [project.id]);
+  // Outputs now come from project.outputs (synced via updateProject),
+  // so we no longer need the storage-poll mechanism.
 
   const handleCreate = (e) => {
     e.preventDefault();
@@ -108,17 +90,15 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
       toast.error('Set your Anthropic API key in Settings first');
       return;
     }
-    let lead = {};
-    try { lead = JSON.parse(localStorage.getItem(LEAD_KEY(project.id))) || {}; } catch {}
+    const lead = project.lead || {};
     const varMap = buildVarMap(lead, project);
     setRegeneratingId(seq.id);
-    const currentOutputs = { ...outputs };
+    const currentOutputs = { ...(project.outputs || {}) };
     for (const msg of seq.messages) {
       try {
         const result = await generateMessage(msg, varMap, apiKey, project.language || 'en');
         currentOutputs[msg.id] = result;
-        setOutputs({ ...currentOutputs });
-        localStorage.setItem(OUTPUTS_KEY(project.id), JSON.stringify(currentOutputs));
+        updateProject({ outputs: { ...currentOutputs } });
       } catch (err) {
         toast.error(`Failed: ${msg.label}: ${err.message}`);
       }
@@ -126,6 +106,27 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
     }
     setRegeneratingId(null);
     toast.success(`${seq.name} regenerated`);
+  };
+
+  const handleShare = () => {
+    const token = crypto.randomUUID();
+    updateProject({ shareToken: token });
+    const url = `${window.location.origin}/share/${token}`;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    toast.success('Share link copied to clipboard');
+  };
+
+  const handleCopyShare = () => {
+    if (!project.shareToken) return;
+    const url = `${window.location.origin}/share/${project.shareToken}`;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    toast.success('Share link copied');
+  };
+
+  const handleRevokeShare = () => {
+    if (!confirm('Revoke the share link? Anyone with the old link will see an error page.')) return;
+    updateProject({ shareToken: null });
+    toast.success('Share link revoked');
   };
 
   // Seed the prompt-edit draft whenever the viewer modal opens.
@@ -164,9 +165,25 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
     <>
       <div className="flex-between mb-16">
         <h3>{project.sequences.length} Sequences</h3>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          + Add Sequence
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {project.shareToken ? (
+            <>
+              <button className="btn btn-secondary btn-sm" onClick={handleCopyShare} title="Copy read-only share link">
+                Copy share link
+              </button>
+              <button className="btn btn-danger btn-sm" onClick={handleRevokeShare}>
+                Revoke share
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-secondary btn-sm" onClick={handleShare} title="Generate a read-only public link">
+              Share as read-only link
+            </button>
+          )}
+          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+            + Add Sequence
+          </button>
+        </div>
       </div>
 
       {project.sequences.length === 0 ? (
