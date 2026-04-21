@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { diffOutputWithTemplate, buildVarMap, generateMessage } from '../utils/ai';
-import { getApiKey } from '../utils/storage';
+import { getApiKey, getCustomer } from '../utils/storage';
+import { downloadSequencesXlsx } from '../utils/exportSequences';
 import SequenceEditor from './SequenceEditor';
 import { useToast } from './Toast';
 
@@ -129,6 +130,17 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
     toast.success('Share link revoked');
   };
 
+  const handleExportXlsx = () => {
+    try {
+      const customer = project.customerId ? getCustomer(project.customerId) : null;
+      const customerName = customer?.name || project.clientName || '';
+      downloadSequencesXlsx({ project, customerName });
+      toast.success('Excel file downloaded');
+    } catch (err) {
+      toast.error('Export failed: ' + err.message);
+    }
+  };
+
   // Seed the prompt-edit draft whenever the viewer modal opens.
   useEffect(() => {
     if (promptModal) setPromptDraft(promptModal.message.prompt);
@@ -166,6 +178,9 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
       <div className="flex-between mb-16">
         <h3>{project.sequences.length} Sequences</h3>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary btn-sm" onClick={handleExportXlsx} title="Download these sequences as an .xlsx file">
+            Export Excel
+          </button>
           {project.shareToken ? (
             <>
               <button className="btn btn-secondary btn-sm" onClick={handleCopyShare} title="Copy read-only share link">
