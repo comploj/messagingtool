@@ -206,7 +206,7 @@ Return ONLY the JSON object, no markdown, no explanation.`;
 }
 
 const VP_FIELDS_SCHEMA = `{
-  "summary": "1-2 sentence company overview in third person",
+  "summary": "A comprehensive paragraph (at least 6-10 sentences) providing a thorough overview of the company in third person. Cover what the company does, their history or founding context if notable, core business model, target markets and customer segments, geographic reach, flagship products or services, key differentiators, company size/scale if known, and overall market positioning. Be detailed and specific — do NOT limit yourself to 1 or 2 sentences.",
   "elevatorPitch": "30-second pitch in first person plural starting with 'We help...'",
   "painPoints": "3-5 pain points the target audience faces, as a short paragraph",
   "usps": "3-5 unique selling propositions that differentiate this company",
