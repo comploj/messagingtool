@@ -155,8 +155,20 @@ export default function ShareProjectView({ token }) {
         <Overview
           project={project}
           updateProject={updateProject}
-          recentlyDeletedSeqs={[]}
-          restoreDeletedSeq={() => {}}
+          recentlyDeletedSeqs={project.deletedSequences || []}
+          restoreDeletedSeq={(seqId) => {
+            const list = project.deletedSequences || [];
+            const seq = list.find((s) => s.id === seqId);
+            if (!seq) return;
+            updateProject({
+              sequences: [...(project.sequences || []), seq],
+              deletedSequences: list.filter((s) => s.id !== seqId),
+            });
+          }}
+          purgeDeletedSeq={(seqId) => {
+            const list = project.deletedSequences || [];
+            updateProject({ deletedSequences: list.filter((s) => s.id !== seqId) });
+          }}
           shareMode
         />
       )}
@@ -164,7 +176,6 @@ export default function ShareProjectView({ token }) {
         <Sequences
           project={project}
           updateProject={updateProject}
-          addDeletedSeq={() => {}}
           shareMode
         />
       )}

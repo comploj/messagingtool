@@ -5,7 +5,7 @@ import { downloadSequencesXlsx } from '../utils/exportSequences';
 import SequenceEditor from './SequenceEditor';
 import { useToast } from './Toast';
 
-export default function Sequences({ project, updateProject, addDeletedSeq, shareMode = false }) {
+export default function Sequences({ project, updateProject, shareMode = false }) {
   const [editingId, setEditingId] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
@@ -163,9 +163,13 @@ export default function Sequences({ project, updateProject, addDeletedSeq, share
   const handleDeleteSequence = (id) => {
     if (!confirm('Delete this sequence?')) return;
     const seq = project.sequences.find((s) => s.id === id);
-    if (seq && addDeletedSeq) addDeletedSeq(seq);
-    updateProject({ sequences: project.sequences.filter((s) => s.id !== id) });
-    toast.success('Sequence deleted — recoverable on Overview until reload');
+    if (!seq) return;
+    const existing = Array.isArray(project.deletedSequences) ? project.deletedSequences : [];
+    updateProject({
+      sequences: project.sequences.filter((s) => s.id !== id),
+      deletedSequences: [seq, ...existing.filter((s) => s.id !== id)],
+    });
+    toast.success('Sequence deleted — recoverable on Overview');
   };
 
   const editingSeq = project.sequences.find((s) => s.id === editingId);

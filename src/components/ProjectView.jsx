@@ -8,13 +8,9 @@ const TABS = ['Overview', 'Sequences'];
 export default function ProjectView({ projectId }) {
   const [activeTab, setActiveTab] = useState('Overview');
   const [project, setProject] = useState(null);
-  // Session-only trash: deleted sequences held in memory so the user can
-  // restore them from the Overview tab. Wiped on reload and on project switch.
-  const [recentlyDeletedSeqs, setRecentlyDeletedSeqs] = useState([]);
 
   useEffect(() => {
     setProject(getProject(projectId));
-    setRecentlyDeletedSeqs([]);
   }, [projectId]);
 
   const updateProject = (updates) => {
@@ -23,18 +19,24 @@ export default function ProjectView({ projectId }) {
     setProject(updated);
   };
 
-  const addDeletedSeq = (seq) => {
-    if (!seq) return;
-    setRecentlyDeletedSeqs((prev) => [seq, ...prev.filter((s) => s.id !== seq.id)]);
-  };
+  // Deleted sequences are persisted on the project (project.deletedSequences)
+  // so they survive page reloads and sync across devices until the user
+  // explicitly restores or permanently removes them.
+  const recentlyDeletedSeqs = project?.deletedSequences || [];
 
   const restoreDeletedSeq = (seqId) => {
     const seq = recentlyDeletedSeqs.find((s) => s.id === seqId);
     if (!seq) return;
-    setRecentlyDeletedSeqs((prev) => prev.filter((s) => s.id !== seqId));
-    const updated = { ...project, sequences: [...project.sequences, seq] };
-    saveProject(updated);
-    setProject(updated);
+    updateProject({
+      sequences: [...(project.sequences || []), seq],
+      deletedSequences: recentlyDeletedSeqs.filter((s) => s.id !== seqId),
+    });
+  };
+
+  const purgeDeletedSeq = (seqId) => {
+    updateProject({
+      deletedSequences: recentlyDeletedSeqs.filter((s) => s.id !== seqId),
+    });
   };
 
   if (!project) return null;
@@ -59,13 +61,13 @@ export default function ProjectView({ projectId }) {
           updateProject={updateProject}
           recentlyDeletedSeqs={recentlyDeletedSeqs}
           restoreDeletedSeq={restoreDeletedSeq}
+          purgeDeletedSeq={purgeDeletedSeq}
         />
       )}
       {activeTab === 'Sequences' && (
         <Sequences
           project={project}
           updateProject={updateProject}
-          addDeletedSeq={addDeletedSeq}
         />
       )}
     </div>

@@ -19,7 +19,7 @@ function loadJson(key, fallback) {
   catch { return fallback; }
 }
 
-export default function Overview({ project, updateProject, recentlyDeletedSeqs = [], restoreDeletedSeq, shareMode = false }) {
+export default function Overview({ project, updateProject, recentlyDeletedSeqs = [], restoreDeletedSeq, purgeDeletedSeq, shareMode = false }) {
   const [scraping, setScraping] = useState(false);
   const [scrapingCompany, setScrapingCompany] = useState(false);
   const lead = project.lead || emptyLead;
@@ -453,8 +453,8 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
       {recentlyDeletedSeqs.length > 0 && (
         <div className="overview-section">
           <div className="vp-header">
-            <h3>Recently Deleted Sequences</h3>
-            <span className="text-secondary text-sm">Cleared on reload</span>
+            <h3>Deleted Sequences</h3>
+            <span className="text-secondary text-sm">Kept until you permanently delete them</span>
           </div>
           <div className="seq-checkboxes">
             {recentlyDeletedSeqs.map((seq) => (
@@ -465,15 +465,30 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
                     {seq.messages?.length || 0} message{(seq.messages?.length || 0) === 1 ? '' : 's'}
                   </span>
                 </span>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => {
-                    restoreDeletedSeq(seq.id);
-                    toast.success('Sequence restored');
-                  }}
-                >
-                  Restore
-                </button>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      restoreDeletedSeq(seq.id);
+                      toast.success('Sequence restored');
+                    }}
+                  >
+                    Restore
+                  </button>
+                  {!shareMode && purgeDeletedSeq && (
+                    <button
+                      className="btn btn-danger btn-sm"
+                      title="Permanently delete"
+                      onClick={() => {
+                        if (!confirm(`Permanently delete "${seq.name}"? This cannot be undone.`)) return;
+                        purgeDeletedSeq(seq.id);
+                        toast.success('Sequence permanently deleted');
+                      }}
+                    >
+                      Delete forever
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
