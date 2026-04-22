@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { processAuth, readStore, writeStore, processShare } from './server/state.js'
+import { processAuth, readStore, writeStore, processShare, processGetShareState, processPutShareState } from './server/state.js'
 
 async function readJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -65,12 +65,34 @@ export default defineConfig({
         });
 
         server.middlewares.use('/api/share', async (req, res) => {
-          if (req.method !== 'GET') return sendJson(res, 405, { error: 'method_not_allowed' });
-          // path like /api/share/:token — after `use` strips the mount, req.url is `/:token`
-          const token = (req.url || '').split('?')[0].replace(/^\//, '').trim();
-          const snap = await processShare(token);
-          if (!snap) return sendJson(res, 404, { error: 'not_found' });
-          sendJson(res, 200, snap);
+          // req.url after this mount: /:token or /:token/state
+          const path = (req.url || '').split('?')[0];
+          const stateMatch = path.match(/^\/([^/]+)\/state\/?$/);
+          const rootMatch = path.match(/^\/([^/]+)\/?$/);
+          if (stateMatch) {
+            const token = decodeURIComponent(stateMatch[1]).trim();
+            if (req.method === 'GET') {
+              const snap = await processGetShareState(token);
+              if (!snap) return sendJson(res, 404, { error: 'not_found' });
+              return sendJson(res, 200, snap);
+            }
+            if (req.method === 'PUT') {
+              let body;
+              try { body = await readJsonBody(req); } catch { return sendJson(res, 400, { error: 'bad_json' }); }
+              const result = await processPutShareState(token, body);
+              if (result.error) return sendJson(res, result.status || 500, result);
+              return sendJson(res, 200, result);
+            }
+            return sendJson(res, 405, { error: 'method_not_allowed' });
+          }
+          if (rootMatch) {
+            if (req.method !== 'GET') return sendJson(res, 405, { error: 'method_not_allowed' });
+            const token = decodeURIComponent(rootMatch[1]).trim();
+            const snap = await processShare(token);
+            if (!snap) return sendJson(res, 404, { error: 'not_found' });
+            return sendJson(res, 200, snap);
+          }
+          sendJson(res, 404, { error: 'not_found' });
         });
 
         server.middlewares.use('/api/auth', async (req, res) => {

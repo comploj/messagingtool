@@ -24,11 +24,39 @@ export async function fetchState() {
   return res.json();
 }
 
-// Public read-only share — no auth header.
+// Public read-only share snapshot (legacy) — no auth header.
 export async function fetchShare(token) {
   const res = await fetch('/api/share/' + encodeURIComponent(token));
   if (res.status === 404) return null;
   if (!res.ok) throw new Error('fetch_share_failed_' + res.status);
+  return res.json();
+}
+
+// Editable share state — returns { project, customer, promptOverrides, version }.
+// No auth header; the token grants access to one specific project.
+export async function fetchShareState(token) {
+  const res = await fetch('/api/share/' + encodeURIComponent(token) + '/state');
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('fetch_share_state_failed_' + res.status);
+  return res.json();
+}
+
+// Push a project update under a share token.
+// Returns { ok, version } on success or { conflict, current } on 409.
+export async function pushShareState(token, project, baseVersion) {
+  const res = await fetch('/api/share/' + encodeURIComponent(token) + '/state', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ project, baseVersion }),
+  });
+  if (res.status === 409) {
+    const body = await res.json().catch(() => ({}));
+    return { conflict: true, current: body.current };
+  }
+  if (res.status === 403) {
+    return { forbidden: true };
+  }
+  if (!res.ok) throw new Error('push_share_state_failed_' + res.status);
   return res.json();
 }
 

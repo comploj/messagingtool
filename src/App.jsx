@@ -6,7 +6,7 @@ import Projects from './components/Projects';
 import CustomerView from './components/CustomerView';
 import ProjectView from './components/ProjectView';
 import Settings from './components/Settings';
-import ShareView from './components/ShareView';
+import ShareProjectView from './components/ShareProjectView';
 import { useToast } from './components/Toast';
 
 function detectShareToken() {
@@ -18,7 +18,7 @@ function detectShareToken() {
 export default function App() {
   const shareToken = detectShareToken();
   if (shareToken) {
-    return <ShareView token={shareToken} />;
+    return <ShareProjectView token={shareToken} />;
   }
   return <AppAuthed />;
 }

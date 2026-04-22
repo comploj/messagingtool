@@ -19,7 +19,7 @@ function loadJson(key, fallback) {
   catch { return fallback; }
 }
 
-export default function Overview({ project, updateProject, recentlyDeletedSeqs = [], restoreDeletedSeq }) {
+export default function Overview({ project, updateProject, recentlyDeletedSeqs = [], restoreDeletedSeq, shareMode = false }) {
   const [scraping, setScraping] = useState(false);
   const [scrapingCompany, setScrapingCompany] = useState(false);
   const lead = project.lead || emptyLead;

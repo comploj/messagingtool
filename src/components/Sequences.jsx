@@ -5,7 +5,7 @@ import { downloadSequencesXlsx } from '../utils/exportSequences';
 import SequenceEditor from './SequenceEditor';
 import { useToast } from './Toast';
 
-export default function Sequences({ project, updateProject, addDeletedSeq }) {
+export default function Sequences({ project, updateProject, addDeletedSeq, shareMode = false }) {
   const [editingId, setEditingId] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
@@ -181,9 +181,9 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
           <button className="btn btn-secondary btn-sm" onClick={handleExportXlsx} title="Download these sequences as an .xlsx file">
             Export Excel
           </button>
-          {project.shareToken ? (
+          {!shareMode && (project.shareToken ? (
             <>
-              <button className="btn btn-secondary btn-sm" onClick={handleCopyShare} title="Copy read-only share link">
+              <button className="btn btn-secondary btn-sm" onClick={handleCopyShare} title="Copy the collaboration link">
                 Copy share link
               </button>
               <button className="btn btn-danger btn-sm" onClick={handleRevokeShare}>
@@ -191,10 +191,10 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
               </button>
             </>
           ) : (
-            <button className="btn btn-secondary btn-sm" onClick={handleShare} title="Generate a read-only public link">
-              Share as read-only link
+            <button className="btn btn-secondary btn-sm" onClick={handleShare} title="Generate a collaboration link anyone can edit">
+              Share link (edit)
             </button>
-          )}
+          ))}
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
             + Add Sequence
           </button>
@@ -236,13 +236,13 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
                       : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
                     }
                   </button>
-                  <button
+                  {!shareMode && (<button
                     className="seq-regen-btn seq-delete-btn"
                     title="Delete sequence"
                     onClick={() => handleDeleteSequence(seq.id)}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                  </button>
+                  </button>)}
                   <span className="text-secondary text-sm seq-edit-link" onClick={() => setEditingId(seq.id)}>Edit</span>
                 </div>
               </div>
@@ -344,6 +344,7 @@ export default function Sequences({ project, updateProject, addDeletedSeq }) {
           onSave={handleSaveSequence}
           onDelete={() => handleDeleteSequence(editingSeq.id)}
           onClose={() => setEditingId(null)}
+          shareMode={shareMode}
         />
       )}
 

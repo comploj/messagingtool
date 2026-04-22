@@ -7,7 +7,7 @@ const AVAILABLE_VARS = [
   '{MyNameFirst}', '{MyNameLast}', '{op.value_proposition}',
 ];
 
-export default function SequenceEditor({ sequence, onSave, onDelete, onClose }) {
+export default function SequenceEditor({ sequence, onSave, onDelete, onClose, shareMode = false }) {
   const [seq, setSeq] = useState(JSON.parse(JSON.stringify(sequence)));
 
   const updateField = (field, value) => {
@@ -132,9 +132,11 @@ export default function SequenceEditor({ sequence, onSave, onDelete, onClose }) 
         </div>
 
         <div className="modal-footer">
-          <button className="btn btn-danger btn-sm" onClick={onDelete}>
-            Delete Sequence
-          </button>
+          {!shareMode && (
+            <button className="btn btn-danger btn-sm" onClick={onDelete}>
+              Delete Sequence
+            </button>
+          )}
           <div style={{ flex: 1 }} />
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={() => onSave(seq)}>Save</button>

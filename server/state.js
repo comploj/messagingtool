@@ -163,10 +163,120 @@ export async function handleGetShare(req, res) {
   res.json(snapshot);
 }
 
+// Editable share endpoints — a share token grants full edit access to ONE
+// specific project (except deleting existing sequences). Used by
+// ShareProjectView to let recipients collaborate without logging in.
+
+function stateForShare(store, project) {
+  const customer = (store.customers || []).find((c) => c.id === project.customerId);
+  return {
+    project,
+    customer: customer || null,
+    promptOverrides: store.promptOverrides || { strategies: {}, staticFollowups: {} },
+    version: store.version,
+  };
+}
+
+export async function handleGetShareState(req, res) {
+  const token = String(req.params?.token || '').trim();
+  if (!token) return res.status(404).json({ error: 'not_found' });
+  const store = await readStore();
+  const project = (store.projects || []).find((p) => p.shareToken === token);
+  if (!project) return res.status(404).json({ error: 'not_found' });
+  res.json(stateForShare(store, project));
+}
+
+// Accepts { project, baseVersion }. Validates:
+// - Token maps to a project
+// - Incoming project.id matches stored project.id
+// - Incoming project.shareToken unchanged (viewers cannot rotate/revoke)
+// - No previously-existing sequence IDs are missing (deletion blocked)
+export async function handlePutShareState(req, res) {
+  const token = String(req.params?.token || '').trim();
+  if (!token) return res.status(404).json({ error: 'not_found' });
+  const { project: incoming, baseVersion } = req.body || {};
+  if (!incoming || typeof incoming !== 'object') {
+    return res.status(400).json({ error: 'bad_project' });
+  }
+  const store = await readStore();
+  if (typeof baseVersion !== 'number' || baseVersion !== store.version) {
+    return res.status(409).json({ error: 'version_conflict', current: stateForShare(store, (store.projects || []).find((p) => p.shareToken === token) || {}) });
+  }
+  const idx = (store.projects || []).findIndex((p) => p.shareToken === token);
+  if (idx < 0) return res.status(404).json({ error: 'not_found' });
+  const existing = store.projects[idx];
+  if (incoming.id !== existing.id) return res.status(400).json({ error: 'id_mismatch' });
+
+  // Block sequence deletion: every existing sequence ID must appear in the incoming project.
+  const existingIds = new Set((existing.sequences || []).map((s) => s.id));
+  const incomingIds = new Set((incoming.sequences || []).map((s) => s.id));
+  for (const id of existingIds) {
+    if (!incomingIds.has(id)) return res.status(403).json({ error: 'cannot_delete_sequences' });
+  }
+
+  // Preserve share token and customerId — viewers can't rotate them.
+  const sanitized = {
+    ...incoming,
+    id: existing.id,
+    customerId: existing.customerId,
+    shareToken: existing.shareToken,
+  };
+  const nextProjects = [...store.projects];
+  nextProjects[idx] = sanitized;
+  const next = {
+    ...store,
+    version: store.version + 1,
+    projects: nextProjects,
+  };
+  await writeStore(next);
+  res.json({ ok: true, version: next.version });
+}
+
 // Framework-agnostic helpers used by the Vite dev middleware, which doesn't
 // pass an Express req/res pair.
 export async function processAuth(token) {
   return isValidToken(token);
+}
+
+export async function processGetShareState(token) {
+  const t = String(token || '').trim();
+  if (!t) return null;
+  const store = await readStore();
+  const project = (store.projects || []).find((p) => p.shareToken === t);
+  if (!project) return null;
+  return stateForShare(store, project);
+}
+
+export async function processPutShareState(token, body) {
+  const t = String(token || '').trim();
+  if (!t) return { error: 'not_found', status: 404 };
+  const { project: incoming, baseVersion } = body || {};
+  if (!incoming || typeof incoming !== 'object') return { error: 'bad_project', status: 400 };
+  const store = await readStore();
+  if (typeof baseVersion !== 'number' || baseVersion !== store.version) {
+    const p = (store.projects || []).find((pp) => pp.shareToken === t);
+    return { error: 'version_conflict', status: 409, current: p ? stateForShare(store, p) : null };
+  }
+  const idx = (store.projects || []).findIndex((p) => p.shareToken === t);
+  if (idx < 0) return { error: 'not_found', status: 404 };
+  const existing = store.projects[idx];
+  if (incoming.id !== existing.id) return { error: 'id_mismatch', status: 400 };
+  const existingIds = new Set((existing.sequences || []).map((s) => s.id));
+  const incomingIds = new Set((incoming.sequences || []).map((s) => s.id));
+  for (const id of existingIds) {
+    if (!incomingIds.has(id)) return { error: 'cannot_delete_sequences', status: 403 };
+  }
+  const sanitized = {
+    ...incoming,
+    id: existing.id,
+    customerId: existing.customerId,
+    shareToken: existing.shareToken,
+  };
+  const nextProjects = [...store.projects];
+  nextProjects[idx] = sanitized;
+  const next = { ...store, version: store.version + 1, projects: nextProjects };
+  await writeStore(next);
+  return { ok: true, version: next.version };
 }
 
 // For Vite dev middleware to handle /api/share/:token without Express req/res
