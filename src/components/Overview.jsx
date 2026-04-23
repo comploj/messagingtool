@@ -458,14 +458,18 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
           </div>
           <div className="seq-checkboxes">
             {recentlyDeletedSeqs.map((seq) => (
-              <div key={seq.id} className="seq-checkbox" style={{ justifyContent: 'space-between' }}>
-                <span>
+              <div
+                key={seq.id}
+                className="seq-checkbox"
+                style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}
+              >
+                <div>
                   <strong>{seq.name}</strong>
                   <span className="text-secondary text-sm" style={{ marginLeft: 8 }}>
                     {seq.messages?.length || 0} message{(seq.messages?.length || 0) === 1 ? '' : 's'}
                   </span>
-                </span>
-                <div style={{ display: 'flex', gap: 6 }}>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <button
                     className="btn btn-secondary btn-sm"
                     onClick={() => {
