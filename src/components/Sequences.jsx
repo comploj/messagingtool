@@ -3,6 +3,7 @@ import { diffOutputWithTemplate, buildVarMap, generateMessage } from '../utils/a
 import { getApiKey, getCustomer } from '../utils/storage';
 import { downloadSequencesXlsx } from '../utils/exportSequences';
 import SequenceEditor from './SequenceEditor';
+import HighlightedTextarea from './HighlightedTextarea';
 import { useToast } from './Toast';
 
 export default function Sequences({ project, updateProject, shareMode = false }) {
@@ -12,6 +13,8 @@ export default function Sequences({ project, updateProject, shareMode = false })
   const [newDesc, setNewDesc] = useState('');
   const [promptModal, setPromptModal] = useState(null); // { seqId, message, seqName, output }
   const [promptDraft, setPromptDraft] = useState('');
+  const [expandedDescs, setExpandedDescs] = useState({});
+  const toggleDesc = (seqId) => setExpandedDescs((prev) => ({ ...prev, [seqId]: !prev[seqId] }));
   const outputs = project.outputs || {};
   const [regeneratingId, setRegeneratingId] = useState(null);
   const toast = useToast();
@@ -225,9 +228,39 @@ export default function Sequences({ project, updateProject, shareMode = false })
           >
             {/* Header row */}
             <div className="seq-corner-header"></div>
-            {project.sequences.map((seq) => (
+            {project.sequences.map((seq) => {
+              const descOpen = !!expandedDescs[seq.id];
+              const hasDesc = !!(seq.description && seq.description.trim());
+              return (
               <div key={seq.id} className="seq-col-header">
-                <span className="seq-col-name">{seq.name}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span className="seq-col-name">{seq.name}</span>
+                  <button
+                    className="seq-regen-btn"
+                    title={descOpen ? 'Hide description' : 'Show description'}
+                    onClick={() => toggleDesc(seq.id)}
+                    aria-label="Toggle description"
+                    style={{ opacity: hasDesc ? 1 : 0.4 }}
+                  >
+                    {descOpen
+                      ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+                    }
+                  </button>
+                </div>
+                {descOpen && (
+                  <div className="text-secondary text-sm" style={{
+                    marginTop: 6,
+                    padding: '8px 10px',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid var(--border, #2a2a3e)',
+                    borderRadius: 6,
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: 1.4,
+                  }}>
+                    {hasDesc ? seq.description : <em>No description</em>}
+                  </div>
+                )}
                 <div className="seq-col-actions">
                   <button
                     className="seq-regen-btn"
@@ -240,17 +273,18 @@ export default function Sequences({ project, updateProject, shareMode = false })
                       : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
                     }
                   </button>
-                  {!shareMode && (<button
+                  <button
                     className="seq-regen-btn seq-delete-btn"
                     title="Delete sequence"
                     onClick={() => handleDeleteSequence(seq.id)}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                  </button>)}
+                  </button>
                   <span className="text-secondary text-sm seq-edit-link" onClick={() => setEditingId(seq.id)}>Edit</span>
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {/* Data rows with delay rows between them */}
             {Array.from({ length: maxMessages }, (_, rowIdx) => (
@@ -385,8 +419,7 @@ export default function Sequences({ project, updateProject, shareMode = false })
             )}
             <div>
               <div className="form-label" style={{ marginBottom: 8 }}>Message Template</div>
-              <textarea
-                className="textarea textarea-mono"
+              <HighlightedTextarea
                 rows={14}
                 value={promptDraft}
                 onChange={(e) => setPromptDraft(e.target.value)}

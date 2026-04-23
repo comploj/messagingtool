@@ -190,7 +190,7 @@ export async function handleGetShareState(req, res) {
 // - Token maps to a project
 // - Incoming project.id matches stored project.id
 // - Incoming project.shareToken unchanged (viewers cannot rotate/revoke)
-// - No previously-existing sequence IDs are missing (deletion blocked)
+// Sequence deletion IS allowed — share-link recipients can remove sequences.
 export async function handlePutShareState(req, res) {
   const token = String(req.params?.token || '').trim();
   if (!token) return res.status(404).json({ error: 'not_found' });
@@ -206,13 +206,6 @@ export async function handlePutShareState(req, res) {
   if (idx < 0) return res.status(404).json({ error: 'not_found' });
   const existing = store.projects[idx];
   if (incoming.id !== existing.id) return res.status(400).json({ error: 'id_mismatch' });
-
-  // Block sequence deletion: every existing sequence ID must appear in the incoming project.
-  const existingIds = new Set((existing.sequences || []).map((s) => s.id));
-  const incomingIds = new Set((incoming.sequences || []).map((s) => s.id));
-  for (const id of existingIds) {
-    if (!incomingIds.has(id)) return res.status(403).json({ error: 'cannot_delete_sequences' });
-  }
 
   // Preserve share token and customerId — viewers can't rotate them.
   const sanitized = {
@@ -261,11 +254,7 @@ export async function processPutShareState(token, body) {
   if (idx < 0) return { error: 'not_found', status: 404 };
   const existing = store.projects[idx];
   if (incoming.id !== existing.id) return { error: 'id_mismatch', status: 400 };
-  const existingIds = new Set((existing.sequences || []).map((s) => s.id));
-  const incomingIds = new Set((incoming.sequences || []).map((s) => s.id));
-  for (const id of existingIds) {
-    if (!incomingIds.has(id)) return { error: 'cannot_delete_sequences', status: 403 };
-  }
+  // Sequence deletion IS allowed — viewers can remove sequences.
   const sanitized = {
     ...incoming,
     id: existing.id,
