@@ -136,7 +136,7 @@ export default function ShareProjectView({ token }) {
             <span aria-hidden="true">•</span>
             <a href="https://www.leadhuntai.de/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy policy</a>
             <span aria-hidden="true">•</span>
-            <a href="https://leadhunt.ai/imprint" target="_blank" rel="noopener noreferrer">Imprint</a>
+            <a href="https://www.leadhuntai.de/imprint" target="_blank" rel="noopener noreferrer">Imprint</a>
           </div>
         </div>
       </footer>
