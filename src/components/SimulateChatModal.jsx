@@ -69,8 +69,8 @@ export default function SimulateChatModal({
     });
   };
 
-  // Seed: on first open of a fresh conversation, auto-generate the SDR
-  // opening (from the sequence's first message) + one persona reply.
+  // Seed: on first open of a fresh conversation, auto-generate the SDR opener
+  // only. The user then picks how the lead replies via the flavour pills.
   useEffect(() => {
     if (seededRef.current) return;
     seededRef.current = true;
@@ -106,10 +106,6 @@ export default function SimulateChatModal({
         const lang = project.language || 'en';
         const opener = await generateMessage(firstMsg, varMap, apiKey, lang);
         pushTurns([{ role: 'sdr', text: opener }], project.sdrWorkflowId);
-        await new Promise((r) => setTimeout(r, 800));
-        setPhase('persona');
-        const reply = await simulatePersonaReply(persona, project, [{ role: 'sdr', text: opener }], apiKey, lang);
-        pushTurns([{ role: 'persona', text: reply }]);
       } catch (err) {
         toast.error('Seeding failed: ' + err.message);
       } finally {
@@ -127,12 +123,11 @@ export default function SimulateChatModal({
     }
   }, [turns.length]);
 
-  const handleRespond = async (responseType) => {
+  // Fires the SDR workflow ONLY. The lead's reply is a separate explicit step
+  // driven by the flavour pills below.
+  const handleRespond = async () => {
     const anthropicKey = getApiKey('anthropic');
     if (!anthropicKey) { toast.error('Set your Anthropic API key in Settings → AI Providers first'); return; }
-    // Fallback chain: workflow the chat was started with → the project's current
-    // choice → the first workflow that exists. So a fresh project that never
-    // opened Settings still works out of the box.
     const wf = workflow
       || getSdrWorkflow(project.sdrWorkflowId)
       || getSdrWorkflows()[0];
@@ -162,20 +157,33 @@ export default function SimulateChatModal({
         ...(result.functionParameters ? { functionParameters: result.functionParameters } : {}),
       };
       pushTurns([sdrTurn], wf.id);
-      const updatedTurns = [...turns, { role: 'sdr', text: result.final }];
       if (result.sendMessageNow === false) {
-        toast.info?.('Workflow set send_message_now=false — no prospect reply generated.');
-      } else {
-        await new Promise((r) => setTimeout(r, 800));
-        setPhase('persona');
-        const personaReply = await simulatePersonaReply(persona, project, updatedTurns, anthropicKey, lang, responseType);
-        pushTurns([{ role: 'persona', text: personaReply }]);
+        toast.info?.('Workflow set send_message_now=false.');
       }
     } catch (err) {
       toast.error('Response failed: ' + err.message);
     } finally {
       setPhase('idle');
       setLayerStatus(null);
+      setBusy(false);
+    }
+  };
+
+  // Fires ONLY the lead's reply, steered by the chosen response type.
+  const handleProspectReply = async (responseType) => {
+    const anthropicKey = getApiKey('anthropic');
+    if (!anthropicKey) { toast.error('Set your Anthropic API key in Settings → AI Providers first'); return; }
+    if (busy) return;
+    setBusy(true);
+    try {
+      setPhase('persona');
+      const lang = project.language || 'en';
+      const personaReply = await simulatePersonaReply(persona, project, turns, anthropicKey, lang, responseType);
+      pushTurns([{ role: 'persona', text: personaReply }]);
+    } catch (err) {
+      toast.error('Lead reply failed: ' + err.message);
+    } finally {
+      setPhase('idle');
       setBusy(false);
     }
   };
@@ -270,25 +278,45 @@ export default function SimulateChatModal({
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 0' }}>
-          <span
-            className="text-secondary"
-            style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 4 }}
-          >
-            Respond as lead:
-          </span>
-          {RESPONSE_TYPES.map((rt, i) => (
-            <button
-              key={rt.id}
-              className={`btn btn-sm ${i === 0 ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => handleRespond(rt.id)}
-              disabled={busy || turns.length === 0}
-              title={`Generate the SDR reply, then steer the lead's reply as "${rt.label}"`}
-            >
-              {rt.label}
-            </button>
-          ))}
-        </div>
+        {(() => {
+          const lastRole = turns.length > 0 ? turns[turns.length - 1].role : null;
+          // Whose turn is it to reply?
+          //   last turn was SDR (or no turns at all) → lead should reply → show pills
+          //   last turn was lead → SDR should reply → show Respond button
+          const nextIsLead = lastRole === 'sdr' || lastRole === null;
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 0' }}>
+              <span
+                className="text-secondary"
+                style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 4 }}
+              >
+                {nextIsLead ? 'Lead replies as:' : 'SDR responds:'}
+              </span>
+              {nextIsLead
+                ? RESPONSE_TYPES.map((rt, i) => (
+                    <button
+                      key={rt.id}
+                      className={`btn btn-sm ${i === 0 ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => handleProspectReply(rt.id)}
+                      disabled={busy || turns.length === 0}
+                      title={`Generate the lead's next reply in the "${rt.label}" style`}
+                    >
+                      {rt.label}
+                    </button>
+                  ))
+                : (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={handleRespond}
+                    disabled={busy}
+                  >
+                    {busy ? <><span className="spinner spinner-sm"></span> Responding…</> : 'Respond'}
+                  </button>
+                )
+              }
+            </div>
+          );
+        })()}
 
         <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between' }}>
           <button className="btn btn-ghost btn-sm" onClick={handleClear} disabled={busy}>
