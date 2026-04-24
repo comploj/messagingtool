@@ -23,14 +23,73 @@ const DEFAULT_SDR_WORKFLOW_PROMPT = `You are an AI SDR messaging on LinkedIn on 
 ## Your reply
 Write ONE reply, in a warm consultative tone. Acknowledge what {PersonaFirstName} said. Ask one concrete question that moves the conversation forward. Never pitch. Never promise outcomes. 120 words max. Write in {Language}. Output the reply text only — no preamble, no sign-off line repeating your name.`;
 
+const DEFAULT_AI_PROVIDERS = [
+  { id: 'anthropic', name: 'Anthropic', kind: 'anthropic',
+    baseUrl: 'https://api.anthropic.com/v1/messages' },
+  { id: 'openai', name: 'OpenAI', kind: 'openai_compatible',
+    baseUrl: 'https://api.openai.com/v1/chat/completions' },
+  { id: 'nebius', name: 'Nebius', kind: 'openai_compatible',
+    baseUrl: 'https://api.studio.nebius.ai/v1/chat/completions' },
+  { id: 'z-ai', name: 'Z.AI (GLM)', kind: 'openai_compatible',
+    baseUrl: 'https://api.z.ai/api/paas/v4/chat/completions' },
+];
+
 function defaultSdrWorkflows() {
   return [{
     id: 'default-sdr',
     name: 'Default SDR',
     description: 'Warm, consultative, short. Asks a question, never pitches.',
-    prompt: DEFAULT_SDR_WORKFLOW_PROMPT,
+    layers: [{
+      id: 'default-sdr-layer-1',
+      name: 'Respond',
+      description: 'Generates a single reply in a warm consultative tone.',
+      providerId: 'anthropic',
+      model: 'claude-sonnet-4-20250514',
+      systemMessage: 'You are a helpful assistant that writes one concise, warm LinkedIn reply.',
+      temperature: 0.6,
+      content: DEFAULT_SDR_WORKFLOW_PROMPT,
+    }],
     createdAt: new Date().toISOString(),
   }];
+}
+
+// Rewrap any legacy single-prompt workflow into the layered shape. Idempotent.
+function migrateSdrWorkflows(workflows) {
+  if (!Array.isArray(workflows)) return defaultSdrWorkflows();
+  return workflows.map((w) => {
+    if (Array.isArray(w.layers) && w.layers.length > 0) return w;
+    if (typeof w.prompt === 'string') {
+      const { prompt, ...rest } = w;
+      return {
+        ...rest,
+        layers: [{
+          id: `${w.id || randomId()}-layer-1`,
+          name: 'Respond',
+          description: '',
+          providerId: 'anthropic',
+          model: 'claude-sonnet-4-20250514',
+          systemMessage: '',
+          temperature: 0.6,
+          content: prompt,
+        }],
+      };
+    }
+    // No prompt, no layers — drop in an empty default layer so the editor
+    // doesn't show an unusable card.
+    return {
+      ...w,
+      layers: [{
+        id: `${w.id || randomId()}-layer-1`,
+        name: 'Respond',
+        description: '',
+        providerId: 'anthropic',
+        model: 'claude-sonnet-4-20250514',
+        systemMessage: '',
+        temperature: 0.6,
+        content: '',
+      }],
+    };
+  });
 }
 
 function emptyStore() {
@@ -40,6 +99,7 @@ function emptyStore() {
     customers: [],
     promptOverrides: { strategies: {}, staticFollowups: {} },
     customTokens: [],
+    aiProviders: DEFAULT_AI_PROVIDERS.slice(),
     sdrWorkflows: defaultSdrWorkflows(),
   };
 }
@@ -94,15 +154,24 @@ export async function readStore() {
   } catch {
     return emptyStore();
   }
-  const sdrWorkflows = Array.isArray(parsed.sdrWorkflows) && parsed.sdrWorkflows.length > 0
+  const rawWorkflows = Array.isArray(parsed.sdrWorkflows) && parsed.sdrWorkflows.length > 0
     ? parsed.sdrWorkflows
     : defaultSdrWorkflows();
+  const sdrWorkflows = migrateSdrWorkflows(rawWorkflows);
+  // Merge any missing default providers so new builtins show up automatically.
+  const incomingProviders = Array.isArray(parsed.aiProviders) ? parsed.aiProviders : [];
+  const providerById = new Map(incomingProviders.map((p) => [p.id, p]));
+  for (const def of DEFAULT_AI_PROVIDERS) {
+    if (!providerById.has(def.id)) providerById.set(def.id, def);
+  }
+  const aiProviders = Array.from(providerById.values());
   const base = {
     version: Number(parsed.version) || 0,
     projects: Array.isArray(parsed.projects) ? parsed.projects : [],
     customers: Array.isArray(parsed.customers) ? parsed.customers : [],
     promptOverrides: parsed.promptOverrides || { strategies: {}, staticFollowups: {} },
     customTokens: Array.isArray(parsed.customTokens) ? parsed.customTokens : [],
+    aiProviders,
     sdrWorkflows,
   };
   return migrateStore(base);
@@ -152,6 +221,7 @@ export async function handlePutState(req, res) {
     customers: Array.isArray(state?.customers) ? state.customers : current.customers,
     promptOverrides: state?.promptOverrides ?? current.promptOverrides,
     customTokens: Array.isArray(state?.customTokens) ? state.customTokens : current.customTokens,
+    aiProviders: Array.isArray(state?.aiProviders) ? state.aiProviders : current.aiProviders,
     sdrWorkflows: Array.isArray(state?.sdrWorkflows) ? state.sdrWorkflows : current.sdrWorkflows,
   };
   await writeStore(next);

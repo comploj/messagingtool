@@ -2,12 +2,14 @@ import { getFactoryStrategyKeys } from './prompts';
 
 const KEYS = {
   AUTH: 'leadhunt_auth',
-  API_KEY: 'leadhunt_api_key',
+  API_KEY: 'leadhunt_api_key',           // legacy single Anthropic key, migrated lazily
+  API_KEYS: 'leadhunt_api_keys',         // NEW map: { providerId: apiKey }
   PROJECTS: 'leadhunt_projects',
   CUSTOMERS: 'leadhunt_customers',
   CUSTOM_TOKENS: 'leadhunt_custom_tokens',
   PROMPT_OVERRIDES: 'leadhunt_prompt_overrides',
   SDR_WORKFLOWS: 'leadhunt_sdr_workflows',
+  AI_PROVIDERS: 'leadhunt_ai_providers',
   STATE_VERSION: 'leadhunt_state_version',
 };
 
@@ -37,6 +39,7 @@ export async function hydrateFromServer() {
   );
   localStorage.setItem(KEYS.CUSTOM_TOKENS, JSON.stringify(s.customTokens || []));
   localStorage.setItem(KEYS.SDR_WORKFLOWS, JSON.stringify(s.sdrWorkflows || []));
+  localStorage.setItem(KEYS.AI_PROVIDERS, JSON.stringify(s.aiProviders || []));
   setStateVersion(Number(s.version) || 0);
 }
 
@@ -57,6 +60,7 @@ async function flushSync() {
       promptOverrides: getPromptOverrides() || { strategies: {}, staticFollowups: {} },
       customTokens: getCustomTokens(),
       sdrWorkflows: getSdrWorkflows(),
+      aiProviders: getAiProviders(),
     };
     const res = await pushState(state, getStateVersion());
     if (res.conflict) {
@@ -71,6 +75,7 @@ async function flushSync() {
         );
         localStorage.setItem(KEYS.CUSTOM_TOKENS, JSON.stringify(res.current.customTokens || []));
         localStorage.setItem(KEYS.SDR_WORKFLOWS, JSON.stringify(res.current.sdrWorkflows || []));
+        localStorage.setItem(KEYS.AI_PROVIDERS, JSON.stringify(res.current.aiProviders || []));
         setStateVersion(Number(res.current.version) || 0);
       } else {
         await hydrateFromServer();
@@ -140,12 +145,60 @@ export function clearAuth() {
   localStorage.removeItem(KEYS.AUTH);
 }
 
-// API Key
-export function getApiKey() {
-  return localStorage.getItem(KEYS.API_KEY) || '';
+// API keys — per-user, never synced.
+// Backward-compatible: getApiKey() with no arg == getApiKey('anthropic') and also
+// falls back to the legacy single-key localStorage entry the first time through
+// (migrating it into the new map).
+function readApiKeys() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(KEYS.API_KEYS));
+    return (parsed && typeof parsed === 'object') ? parsed : {};
+  } catch { return {}; }
 }
-export function setApiKey(key) {
-  localStorage.setItem(KEYS.API_KEY, key);
+function writeApiKeys(map) {
+  localStorage.setItem(KEYS.API_KEYS, JSON.stringify(map));
+}
+
+export function getApiKey(providerId = 'anthropic') {
+  const map = readApiKeys();
+  if (map[providerId]) return map[providerId];
+  // Legacy: single-key entry has always been the Anthropic key.
+  if (providerId === 'anthropic') {
+    const legacy = localStorage.getItem(KEYS.API_KEY);
+    if (legacy) {
+      map.anthropic = legacy;
+      writeApiKeys(map);
+      return legacy;
+    }
+  }
+  return '';
+}
+
+export function setApiKey(providerIdOrKey, maybeKey) {
+  // Backward-compatible: setApiKey(key) still works (writes to anthropic).
+  let providerId;
+  let key;
+  if (maybeKey === undefined) {
+    providerId = 'anthropic';
+    key = providerIdOrKey;
+  } else {
+    providerId = providerIdOrKey;
+    key = maybeKey;
+  }
+  const map = readApiKeys();
+  if (key == null || key === '') delete map[providerId];
+  else map[providerId] = key;
+  writeApiKeys(map);
+  // Keep the legacy single-key in sync so old reads still work during the
+  // deprecation window.
+  if (providerId === 'anthropic') {
+    if (key) localStorage.setItem(KEYS.API_KEY, key);
+    else localStorage.removeItem(KEYS.API_KEY);
+  }
+}
+
+export function getApiKeyMap() {
+  return readApiKeys();
 }
 
 // Custom access tokens
@@ -325,14 +378,68 @@ export function setPromptOverrides(obj) {
   scheduleSync();
 }
 
-// AI SDR workflows — shared across all projects. Each workflow has a prompt
-// template a project can pick via `project.sdrWorkflowId`.
-export function getSdrWorkflows() {
+// AI providers — shared catalogue, synced via server.
+export function getAiProviders() {
   try {
-    return JSON.parse(localStorage.getItem(KEYS.SDR_WORKFLOWS)) || [];
+    return JSON.parse(localStorage.getItem(KEYS.AI_PROVIDERS)) || [];
   } catch {
     return [];
   }
+}
+export function getAiProvider(id) {
+  return getAiProviders().find((p) => p.id === id) || null;
+}
+export function saveAiProvider(provider) {
+  const list = getAiProviders();
+  const idx = list.findIndex((p) => p.id === provider.id);
+  if (idx >= 0) list[idx] = { ...list[idx], ...provider }; else list.push(provider);
+  localStorage.setItem(KEYS.AI_PROVIDERS, JSON.stringify(list));
+  scheduleSync();
+}
+export function deleteAiProvider(id) {
+  const list = getAiProviders().filter((p) => p.id !== id);
+  localStorage.setItem(KEYS.AI_PROVIDERS, JSON.stringify(list));
+  scheduleSync();
+}
+
+// AI SDR workflows — shared across all projects. Migrates legacy
+// single-prompt workflows into the layered shape on read.
+function randomLayerId(workflowId) {
+  const id = (globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+  return workflowId ? `${workflowId}-layer-${id.slice(0, 8)}` : `layer-${id}`;
+}
+
+function migrateWorkflow(w) {
+  if (!w || typeof w !== 'object') return w;
+  if (Array.isArray(w.layers) && w.layers.length > 0) return w;
+  const content = typeof w.prompt === 'string' ? w.prompt : '';
+  const { prompt: _legacy, ...rest } = w;
+  return {
+    ...rest,
+    layers: [{
+      id: randomLayerId(w.id),
+      name: 'Respond',
+      description: '',
+      providerId: 'anthropic',
+      model: 'claude-sonnet-4-20250514',
+      systemMessage: '',
+      temperature: 0.6,
+      content,
+    }],
+  };
+}
+
+export function getSdrWorkflows() {
+  let raw;
+  try { raw = JSON.parse(localStorage.getItem(KEYS.SDR_WORKFLOWS)) || []; }
+  catch { return []; }
+  if (!Array.isArray(raw)) return [];
+  const migrated = raw.map(migrateWorkflow);
+  const anyChanged = migrated.some((w, i) => w !== raw[i]);
+  if (anyChanged) {
+    localStorage.setItem(KEYS.SDR_WORKFLOWS, JSON.stringify(migrated));
+  }
+  return migrated;
 }
 
 export function getSdrWorkflow(id) {
