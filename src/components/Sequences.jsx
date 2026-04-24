@@ -13,8 +13,7 @@ export default function Sequences({ project, updateProject, shareMode = false })
   const [newDesc, setNewDesc] = useState('');
   const [promptModal, setPromptModal] = useState(null); // { seqId, message, seqName, output }
   const [promptDraft, setPromptDraft] = useState('');
-  const [expandedDescs, setExpandedDescs] = useState({});
-  const toggleDesc = (seqId) => setExpandedDescs((prev) => ({ ...prev, [seqId]: !prev[seqId] }));
+  const [descriptionsOpen, setDescriptionsOpen] = useState(false);
   const outputs = project.outputs || {};
   const [regeneratingId, setRegeneratingId] = useState(null);
   const toast = useToast();
@@ -185,6 +184,13 @@ export default function Sequences({ project, updateProject, shareMode = false })
       <div className="flex-between mb-16">
         <h3>{project.sequences.length} Sequences</h3>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setDescriptionsOpen((v) => !v)}
+            title={descriptionsOpen ? 'Hide descriptions' : 'Show descriptions'}
+          >
+            {descriptionsOpen ? 'Hide descriptions' : 'Show descriptions'}
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={handleExportXlsx} title="Download these sequences as an .xlsx file">
             Export Excel
           </button>
@@ -229,34 +235,19 @@ export default function Sequences({ project, updateProject, shareMode = false })
             {/* Header row */}
             <div className="seq-corner-header"></div>
             {project.sequences.map((seq) => {
-              const descOpen = !!expandedDescs[seq.id];
               const hasDesc = !!(seq.description && seq.description.trim());
               return (
               <div key={seq.id} className="seq-col-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span className="seq-col-name">{seq.name}</span>
-                  <button
-                    className="seq-regen-btn"
-                    title={descOpen ? 'Hide description' : 'Show description'}
-                    onClick={() => toggleDesc(seq.id)}
-                    aria-label="Toggle description"
-                    style={{ opacity: hasDesc ? 1 : 0.4 }}
-                  >
-                    {descOpen
-                      ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
-                    }
-                  </button>
-                </div>
-                {descOpen && (
+                <span className="seq-col-name">{seq.name}</span>
+                {descriptionsOpen && (
                   <div className="text-secondary text-sm" style={{
-                    marginTop: 6,
-                    padding: '8px 10px',
+                    marginTop: 8,
+                    padding: '10px 12px',
                     background: 'rgba(255,255,255,0.04)',
                     border: '1px solid var(--border, #2a2a3e)',
                     borderRadius: 6,
                     whiteSpace: 'pre-wrap',
-                    lineHeight: 1.4,
+                    lineHeight: 1.45,
                   }}>
                     {hasDesc ? seq.description : <em>No description</em>}
                   </div>
