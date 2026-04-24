@@ -15,7 +15,11 @@ const STATIC_FOLLOWUPS = {
 const STRATEGIES = {
   'Centre of Excellence': {
     en: {
-      description: "Positions your company as building a centre of excellence in the prospect's country.",
+      description: `What It Is:
+An outreach that positions your company as building a centre of excellence in the recipient's country and invites their local-market perspective.
+
+Hypothesis:
+People are flattered to be consulted as regional experts. Framing the conversation around building something in their market turns a cold message into a collaborative consultation.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -66,7 +70,11 @@ Best regards,
 Output the message now.`,
     },
     de: {
-      description: 'Positioniert Ihr Unternehmen beim Aufbau eines Kompetenzzentrums im Land des Kontakts.',
+      description: `Was es ist:
+Eine Kontaktaufnahme, die Ihr Unternehmen beim Aufbau eines Kompetenzzentrums im Land des Empfängers positioniert und um dessen lokale Marktperspektive bittet.
+
+Hypothese:
+Menschen fühlen sich geschmeichelt, als regionale Experten konsultiert zu werden. Das Gespräch um den Aufbau von etwas in ihrem Markt zu rahmen, verwandelt eine Kaltakquise in eine kollaborative Beratung.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -120,7 +128,11 @@ Gib die Nachricht jetzt aus.`,
   },
   'Would It Be Valuable': {
     en: {
-      description: "Leads with a specific outcome question tailored to the prospect's company.",
+      description: `What It Is:
+An outreach that describes a concrete outcome you could unlock and asks, plainly, whether that outcome would be valuable to them.
+
+Hypothesis:
+A closed-ended value question is easier to answer than an open-ended pitch. "Yes, that would be valuable" commits the reader to the next step without feeling sold to.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -167,7 +179,11 @@ I am asking because [give a brief, genuine reason why this is relevant to {First
 Output the message now.`,
     },
     de: {
-      description: 'Beginnt mit einer spezifischen Ergebnisfrage, zugeschnitten auf das Unternehmen des Kontakts.',
+      description: `Was es ist:
+Eine Kontaktaufnahme, die ein konkretes Ergebnis beschreibt, das Sie ermöglichen könnten, und klar fragt, ob dieses Ergebnis wertvoll wäre.
+
+Hypothese:
+Eine geschlossene Wertfrage lässt sich leichter beantworten als ein offener Pitch. "Ja, das wäre wertvoll" verpflichtet den Leser zum nächsten Schritt, ohne dass er sich verkauft fühlt.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -217,7 +233,11 @@ Gib die Nachricht jetzt aus.`,
   },
   'Responsibility-Driven Pain Point': {
     en: {
-      description: "Shows empathy for the prospect's role challenges and offers a solution framed as a question.",
+      description: `What It Is:
+An outreach that names a pain point tied to the recipient's personal area of responsibility (not their company's).
+
+Hypothesis:
+Pain points framed around what the individual is personally accountable for feel urgent and relevant, driving higher reply rates than generic company-level framings.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -265,7 +285,11 @@ Would it make a difference if you could [describe solving one specific challenge
 Output the message now.`,
     },
     de: {
-      description: 'Zeigt Empathie für die Herausforderungen der Rolle und bietet eine Lösung als Frage formuliert.',
+      description: `Was es ist:
+Eine Kontaktaufnahme, die einen Schmerzpunkt nennt, der mit dem persönlichen Verantwortungsbereich des Empfängers (nicht dem seines Unternehmens) verbunden ist.
+
+Hypothese:
+Schmerzpunkte, die um die persönliche Verantwortung des Einzelnen gerahmt sind, fühlen sich dringend und relevant an und erzielen höhere Antwortraten als allgemeine Unternehmens-Framings.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -316,7 +340,11 @@ Gib die Nachricht jetzt aus.`,
   },
   'Offer Feedback Request': {
     en: {
-      description: 'Asks the prospect for honest feedback on your solution, positioning them as an expert.',
+      description: `What It Is:
+A soft outreach that seeks the recipient's expert feedback on a product or concept.
+
+Hypothesis:
+Positioning the recipient as a thought leader fosters trust and collaboration. By asking for their insights (instead of making a hard sell), you gain valuable feedback and begin building a relationship.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -365,7 +393,11 @@ Best regards,
 Output the message now.`,
     },
     de: {
-      description: 'Bittet den Kontakt um ehrliches Feedback zur Lösung und positioniert ihn als Experten.',
+      description: `Was es ist:
+Eine sanfte Kontaktaufnahme, die das Experten-Feedback des Empfängers zu einem Produkt oder Konzept sucht.
+
+Hypothese:
+Den Empfänger als Meinungsführer zu positionieren, fördert Vertrauen und Zusammenarbeit. Indem man nach seinen Erkenntnissen fragt (statt hart zu verkaufen), erhält man wertvolles Feedback und beginnt, eine Beziehung aufzubauen.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -417,7 +449,11 @@ Gib die Nachricht jetzt aus.`,
   },
   'Topic Insight Request': {
     en: {
-      description: "Frames outreach around a research topic relevant to the prospect's expertise.",
+      description: `What It Is:
+A request for the recipient's thoughts on a relevant industry topic.
+
+Hypothesis:
+Engaging the recipient in a discussion about industry-level topics piques interest and shows respect for their expertise. This approach can lead to meaningful conversations and deeper connections.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -469,7 +505,11 @@ Best regards,
 Output the message now.`,
     },
     de: {
-      description: 'Rahmt die Kontaktaufnahme um ein Forschungsthema, das zur Expertise des Kontakts passt.',
+      description: `Was es ist:
+Eine Anfrage nach den Gedanken des Empfängers zu einem relevanten Branchenthema.
+
+Hypothese:
+Den Empfänger in eine Diskussion über branchenweite Themen einzubinden, weckt Interesse und zeigt Respekt vor seiner Expertise. Dieser Ansatz kann zu bedeutungsvollen Gesprächen und tieferen Verbindungen führen.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -524,7 +564,11 @@ Gib die Nachricht jetzt aus.`,
   },
   'Direct Pitch V1': {
     en: {
-      description: 'A direct pitch that leads with common challenges and positions your solution.',
+      description: `What It Is:
+A straightforward outreach that names what you do, who it's for, and why it matters — no small talk.
+
+Hypothesis:
+Busy decision-makers appreciate clarity. Skipping the preamble and stating the pitch directly respects their time and filters for prospects who already have the pain.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -573,7 +617,11 @@ Best regards,
 Output the message now.`,
     },
     de: {
-      description: 'Ein direkter Pitch, der mit häufigen Herausforderungen beginnt und Ihre Lösung positioniert.',
+      description: `Was es ist:
+Eine direkte Kontaktaufnahme, die nennt, was Sie tun, für wen es ist und warum es wichtig ist — ohne Smalltalk.
+
+Hypothese:
+Vielbeschäftigte Entscheider schätzen Klarheit. Den Umweg wegzulassen und den Pitch direkt zu formulieren, respektiert ihre Zeit und filtert nach Interessenten, die den Schmerzpunkt bereits haben.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -625,7 +673,11 @@ Gib die Nachricht jetzt aus.`,
   },
   'Direct Pitch V2': {
     en: {
-      description: "A concise direct pitch that references the prospect's industry focus and offers relevance.",
+      description: `What It Is:
+A variation of the direct pitch with different framing (e.g. a stronger hook or outcome-first opener) to A/B-test against V1.
+
+Hypothesis:
+Two direct pitches with different openings let you learn which framing resonates most with your audience and iterate toward the highest-converting wording.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -674,7 +726,11 @@ Best regards,
 Output the message now.`,
     },
     de: {
-      description: 'Ein prägnanter direkter Pitch, der den Branchenfokus des Kontakts referenziert.',
+      description: `Was es ist:
+Eine Variation des direkten Pitches mit anderem Framing (z. B. stärkerer Aufhänger oder ergebnisorientierter Einstieg) zum A/B-Testen gegen V1.
+
+Hypothese:
+Zwei direkte Pitches mit unterschiedlichen Eröffnungen helfen zu lernen, welches Framing bei Ihrer Zielgruppe am besten ankommt, und zur konvertierungsstärksten Formulierung zu iterieren.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -726,7 +782,11 @@ Gib die Nachricht jetzt aus.`,
   },
   'Micro-Question': {
     en: {
-      description: 'A short, conversational message with one easy-to-answer question.',
+      description: `What It Is:
+A very short outreach that asks one specific, narrow question — nothing else.
+
+Hypothesis:
+A small cognitive ask lowers the barrier to reply, and specific questions feel personal rather than mass-mailed, producing disproportionately high response rates.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -768,7 +828,11 @@ Quick question — [one simple, conversational question about {FirstName}'s day-
 Output the message now.`,
     },
     de: {
-      description: 'Eine kurze, umgangssprachliche Nachricht mit einer einfach zu beantwortenden Frage.',
+      description: `Was es ist:
+Eine sehr kurze Kontaktaufnahme, die nur eine einzige, spezifische Frage stellt — sonst nichts.
+
+Hypothese:
+Eine kleine kognitive Anforderung senkt die Antworthürde, und spezifische Fragen wirken persönlich statt massenhaft verschickt, was zu überproportional hohen Antwortraten führt.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -813,7 +877,11 @@ Gib die Nachricht jetzt aus.`,
   },
   'Honest Outreach': {
     en: {
-      description: 'A straightforward message that openly states intent and asks if the challenge is relevant.',
+      description: `What It Is:
+A transparent outreach that openly admits it's a cold message and explains exactly why you're reaching out.
+
+Hypothesis:
+Radical transparency disarms scepticism and pattern-breaks against polished sales openers, creating goodwill and more candid replies.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -860,7 +928,11 @@ Either way, appreciate the connection.
 Output the message now.`,
     },
     de: {
-      description: 'Eine direkte Nachricht, die offen die Absicht nennt und fragt, ob die Herausforderung relevant ist.',
+      description: `Was es ist:
+Eine transparente Kontaktaufnahme, die offen zugibt, dass es sich um eine Kaltakquise handelt, und genau erklärt, warum Sie schreiben.
+
+Hypothese:
+Radikale Transparenz entwaffnet Skepsis und durchbricht das Muster polierter Verkaufseröffnungen, was Wohlwollen und ehrlichere Antworten erzeugt.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -910,7 +982,11 @@ Gib die Nachricht jetzt aus.`,
   },
   'Peer Insight': {
     en: {
-      description: 'Shares a recurring theme from peers and asks if the prospect sees the same.',
+      description: `What It Is:
+An outreach that references what peers in the recipient's role, industry, or region are doing and asks if they're seeing the same thing.
+
+Hypothesis:
+People benchmark themselves against peers. Framing the conversation as "here's what others in your position are experiencing" triggers curiosity and a natural urge to weigh in.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -957,7 +1033,11 @@ Curious whether that matches what you're seeing at {Company}, or if your experie
 Output the message now.`,
     },
     de: {
-      description: 'Teilt ein wiederkehrendes Thema von Kollegen und fragt, ob der Kontakt dasselbe sieht.',
+      description: `Was es ist:
+Eine Kontaktaufnahme, die darauf verweist, was Kollegen in der Rolle, Branche oder Region des Empfängers tun, und fragt, ob er dasselbe sieht.
+
+Hypothese:
+Menschen vergleichen sich mit Kollegen. Das Gespräch als "das erleben andere in Ihrer Position" zu rahmen, weckt Neugier und den natürlichen Drang, sich einzubringen.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -1007,7 +1087,11 @@ Gib die Nachricht jetzt aus.`,
   },
   'Give-First': {
     en: {
-      description: 'Leads by sharing a useful insight without asking for anything in return.',
+      description: `What It Is:
+An outreach that opens by giving the recipient something of value (an insight, resource, or observation) before any ask.
+
+Hypothesis:
+Reciprocity is one of the strongest social levers. When you give first without strings, recipients feel an implicit pull to respond, setting a collaborative tone.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -1054,7 +1138,11 @@ Thought it might resonate given what you're doing at {Company}. Happy to share m
 Output the message now.`,
     },
     de: {
-      description: 'Beginnt mit einer nützlichen Erkenntnis, ohne etwas im Gegenzug zu verlangen.',
+      description: `Was es ist:
+Eine Kontaktaufnahme, die damit beginnt, dem Empfänger etwas Wertvolles (eine Erkenntnis, Ressource oder Beobachtung) zu geben, bevor irgendeine Forderung kommt.
+
+Hypothese:
+Reziprozität ist einer der stärksten sozialen Hebel. Wenn Sie zuerst ohne Bedingungen geben, spüren Empfänger einen impliziten Drang zu antworten, was einen kollaborativen Ton setzt.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -1104,7 +1192,11 @@ Gib die Nachricht jetzt aus.`,
   },
   'Specific Observation': {
     en: {
-      description: "A short message that makes a direct observation about the prospect's company.",
+      description: `What It Is:
+An outreach that opens with a concrete, specific observation about the recipient's company, role, or recent activity.
+
+Hypothesis:
+Hyper-specific openers signal that you've done your homework and aren't mass-emailing, which dramatically raises perceived respect and reply rates.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -1150,7 +1242,11 @@ Is that something your team is actively thinking about?
 Output the message now.`,
     },
     de: {
-      description: 'Eine kurze Nachricht mit einer direkten Beobachtung über das Unternehmen des Kontakts.',
+      description: `Was es ist:
+Eine Kontaktaufnahme, die mit einer konkreten, spezifischen Beobachtung über das Unternehmen, die Rolle oder die jüngsten Aktivitäten des Empfängers beginnt.
+
+Hypothese:
+Hochspezifische Einstiege signalisieren, dass Sie Ihre Hausaufgaben gemacht haben und nicht massenhaft E-Mails verschicken, was Respekt und Antwortraten deutlich erhöht.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -1199,7 +1295,11 @@ Gib die Nachricht jetzt aus.`,
   },
   'Contrarian Take': {
     en: {
-      description: 'Challenges a common industry approach and asks where the prospect stands.',
+      description: `What It Is:
+An outreach that shares a counterintuitive or contrarian point of view on a topic the recipient cares about.
+
+Hypothesis:
+Strong, contrarian opinions trigger engagement (agreement or disagreement) far more than neutral observations — people reply to defend, challenge, or validate the position.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -1245,7 +1345,11 @@ Curious — where does {Company} fall on that spectrum?
 Output the message now.`,
     },
     de: {
-      description: 'Hinterfragt einen gängigen Branchenansatz und fragt, wo der Kontakt steht.',
+      description: `Was es ist:
+Eine Kontaktaufnahme, die eine kontraintuitive oder konträre Sichtweise zu einem Thema teilt, das dem Empfänger wichtig ist.
+
+Hypothese:
+Starke, konträre Meinungen erzeugen Engagement (Zustimmung oder Ablehnung) weit mehr als neutrale Beobachtungen — Menschen antworten, um die Position zu verteidigen, in Frage zu stellen oder zu bestätigen.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -1294,7 +1398,11 @@ Gib die Nachricht jetzt aus.`,
   },
   'Role-Empathy Opener': {
     en: {
-      description: "Opens with genuine empathy for the prospect's role pressures.",
+      description: `What It Is:
+An outreach that leads with genuine empathy for the specific challenges of the recipient's role.
+
+Hypothesis:
+Acknowledging the hidden difficulties of someone's job signals that you understand their world, building instant rapport and making the recipient feel seen rather than sold to.`,
       prompt: `You are a LinkedIn message generator. Your entire output is the message — nothing more, nothing less.
 
 ## Prospect Context
@@ -1341,7 +1449,11 @@ If this isn't relevant at all, no worries — just curious.
 Output the message now.`,
     },
     de: {
-      description: 'Beginnt mit echtem Verständnis für den Druck der Rolle des Kontakts.',
+      description: `Was es ist:
+Eine Kontaktaufnahme, die mit echter Empathie für die spezifischen Herausforderungen der Rolle des Empfängers beginnt.
+
+Hypothese:
+Die verborgenen Schwierigkeiten des Jobs einer Person anzuerkennen, signalisiert, dass Sie seine Welt verstehen, was sofortiges Vertrauen schafft und dem Empfänger das Gefühl gibt, gesehen und nicht verkauft zu werden.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
