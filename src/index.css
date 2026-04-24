@@ -962,6 +962,119 @@ select {
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* ===== SHARE PAGE SHELL ===== */
+.share-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.share-nav-brand {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.share-nav-brand:hover {
+  opacity: 0.8;
+}
+.share-nav-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+.share-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.share-subheader {
+  padding: 20px 24px 0;
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.share-subheader strong {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.share-subheader-customer {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.share-status {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  padding: 40px 24px;
+}
+.share-status-message {
+  flex-direction: column;
+  text-align: center;
+}
+.share-status-message h2 {
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+.share-status-message p {
+  color: var(--text-secondary);
+  max-width: 420px;
+}
+.share-footer {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 20px 24px;
+  margin-top: 32px;
+}
+.share-footer-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.share-footer-copy {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+  max-width: 780px;
+}
+.share-footer-copy a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border-strong);
+}
+.share-footer-copy a:hover {
+  color: var(--text-primary);
+}
+.share-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.share-footer-links a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.share-footer-links a:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+.share-footer-links span {
+  color: var(--text-muted);
+}
+
 /* ===== UTILITY ===== */
 .mt-8 { margin-top: 8px; }
 .mt-16 { margin-top: 16px; }

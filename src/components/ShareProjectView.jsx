@@ -100,28 +100,76 @@ export default function ShareProjectView({ token }) {
     });
   };
 
+  const renderShell = (content) => (
+    <div className="share-page">
+      <header className="nav share-nav">
+        <div className="nav-left">
+          <a
+            href="https://leadhunt.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="nav-brand share-nav-brand"
+            aria-label="Leadhunt — opens in a new tab"
+          >
+            <img src="/leadhunt-logo.png" alt="Leadhunt" />
+          </a>
+          <span className="nav-sep">/</span>
+          <span className="share-nav-label">Messaging preview</span>
+        </div>
+        <div className="nav-right">
+          <span className="badge badge-delay">Collaboration link</span>
+        </div>
+      </header>
+
+      <div className="share-body">{content}</div>
+
+      <footer className="share-footer">
+        <div className="share-footer-inner">
+          <div className="share-footer-copy">
+            Operated by{' '}
+            <a href="https://leadhunt.ai" target="_blank" rel="noopener noreferrer">
+              Leadhunt
+            </a>
+            {' '}— a B2B sales-automation platform. This tool is used by Leadhunt's
+            clients to review and approve outbound messaging sequences. No tracking,
+            no advertising, read-only preview.
+          </div>
+          <div className="share-footer-links">
+            <a href="https://leadhunt.ai" target="_blank" rel="noopener noreferrer">leadhunt.ai</a>
+            <span aria-hidden="true">•</span>
+            <a href="https://leadhunt.ai/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy policy</a>
+            <span aria-hidden="true">•</span>
+            <a href="https://leadhunt.ai/imprint" target="_blank" rel="noopener noreferrer">Imprint</a>
+            <span aria-hidden="true">•</span>
+            <a href="mailto:info@leadhunt.ai">info@leadhunt.ai</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+
   if (state.loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: 'var(--text-secondary)' }}>
+    return renderShell(
+      <div className="share-status">
         <span className="spinner" style={{ marginRight: 10 }} /> Loading…
       </div>
     );
   }
 
   if (state.error === 'not_found') {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column', textAlign: 'center', padding: 40 }}>
-        <h2 style={{ marginBottom: 8 }}>Link expired or revoked</h2>
-        <p style={{ color: 'var(--text-secondary)' }}>This share link is no longer active. Please ask the sender for a new link.</p>
+    return renderShell(
+      <div className="share-status share-status-message">
+        <h2>Link expired or revoked</h2>
+        <p>This share link is no longer active. Please ask the sender for a new link.</p>
       </div>
     );
   }
 
   if (state.error) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column', textAlign: 'center', padding: 40 }}>
-        <h2 style={{ marginBottom: 8 }}>Something went wrong</h2>
-        <p style={{ color: 'var(--text-secondary)' }}>{state.error}</p>
+    return renderShell(
+      <div className="share-status share-status-message">
+        <h2>Something went wrong</h2>
+        <p>{state.error}</p>
       </div>
     );
   }
@@ -129,15 +177,14 @@ export default function ShareProjectView({ token }) {
   const { project, customer } = state;
   if (!project) return null;
 
-  return (
-    <div className="project-view">
-      <header className="nav" style={{ padding: '12px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-        <strong style={{ fontSize: 18 }}>{project.name || 'Shared project'}</strong>
+  return renderShell(
+    <>
+      <div className="share-subheader">
+        <strong>{project.name || 'Shared project'}</strong>
         {customer?.name && (
-          <span style={{ color: 'var(--text-secondary)' }}>for {customer.name}</span>
+          <span className="share-subheader-customer">for {customer.name}</span>
         )}
-        <span className="badge badge-delay" style={{ marginLeft: 'auto' }}>Collaboration link</span>
-      </header>
+      </div>
 
       <div className="tabs">
         {TABS.map((tab) => (
@@ -151,34 +198,36 @@ export default function ShareProjectView({ token }) {
         ))}
       </div>
 
-      {activeTab === 'Overview' && (
-        <Overview
-          project={project}
-          updateProject={updateProject}
-          recentlyDeletedSeqs={project.deletedSequences || []}
-          restoreDeletedSeq={(seqId) => {
-            const list = project.deletedSequences || [];
-            const seq = list.find((s) => s.id === seqId);
-            if (!seq) return;
-            updateProject({
-              sequences: [...(project.sequences || []), seq],
-              deletedSequences: list.filter((s) => s.id !== seqId),
-            });
-          }}
-          purgeDeletedSeq={(seqId) => {
-            const list = project.deletedSequences || [];
-            updateProject({ deletedSequences: list.filter((s) => s.id !== seqId) });
-          }}
-          shareMode
-        />
-      )}
-      {activeTab === 'Sequences' && (
-        <Sequences
-          project={project}
-          updateProject={updateProject}
-          shareMode
-        />
-      )}
-    </div>
+      <div className="project-view">
+        {activeTab === 'Overview' && (
+          <Overview
+            project={project}
+            updateProject={updateProject}
+            recentlyDeletedSeqs={project.deletedSequences || []}
+            restoreDeletedSeq={(seqId) => {
+              const list = project.deletedSequences || [];
+              const seq = list.find((s) => s.id === seqId);
+              if (!seq) return;
+              updateProject({
+                sequences: [...(project.sequences || []), seq],
+                deletedSequences: list.filter((s) => s.id !== seqId),
+              });
+            }}
+            purgeDeletedSeq={(seqId) => {
+              const list = project.deletedSequences || [];
+              updateProject({ deletedSequences: list.filter((s) => s.id !== seqId) });
+            }}
+            shareMode
+          />
+        )}
+        {activeTab === 'Sequences' && (
+          <Sequences
+            project={project}
+            updateProject={updateProject}
+            shareMode
+          />
+        )}
+      </div>
+    </>
   );
 }
