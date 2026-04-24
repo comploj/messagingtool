@@ -229,9 +229,22 @@ function buildWorkflowContext({ persona, project, turns, customerName, lang, plo
     Transcript: transcriptToText(turns),
     Conversation: transcriptToText(turns),
     'Conversation:include_timestamps': transcriptToText(turns, { includeTimestamps: true }),
+    // Common aliases so workflow templates authored with different naming
+    // conventions still resolve to the actual transcript instead of rendering
+    // blank (which would make Claude say "conversation history required").
+    transcript: transcriptToText(turns),
+    conversation: transcriptToText(turns),
+    conversation_history: transcriptToText(turns),
+    conversationHistory: transcriptToText(turns),
+    chat_history: transcriptToText(turns),
+    chatHistory: transcriptToText(turns),
+    messages: transcriptToText(turns),
+    history: transcriptToText(turns),
     Timeslots: futureTimeslots(5),
     'Timeslots:smart': futureTimeslots(5),
     LastPersonaReply: lastByRole(turns, 'persona'),
+    last_persona_reply: lastByRole(turns, 'persona'),
+    lastReply: lastByRole(turns, 'persona'),
     // nested objects for {{ x.y }} access
     op: {
       company_name: customerName || project?.clientName || '',
