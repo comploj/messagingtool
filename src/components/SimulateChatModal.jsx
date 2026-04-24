@@ -248,7 +248,7 @@ export default function SimulateChatModal({
               >
                 <div className="text-secondary text-sm" style={{ marginBottom: 4, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   {t.role === 'sdr'
-                    ? (`${project.senderFirstName || ''} ${project.senderLastName || ''}`.trim() || 'AI SDR')
+                    ? 'AI SDR'
                     : (`${persona.firstName || ''} ${persona.lastName || ''}`.trim() || 'Lead')}
                 </div>
                 {t.text}
