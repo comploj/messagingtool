@@ -150,16 +150,17 @@ export default function SimulateChatModal({
         },
       });
       setLayerStatus(null);
+      // Suppressed = the workflow returned send_message_now=false OR had no
+      // usable final_output. Instead of an SDR bubble with "None" (or a raw
+      // JSON dump), render a compact centred note showing the decision.
       const sdrTurn = {
         role: 'sdr',
-        text: result.final,
+        text: result.final || '',
+        ...(result.suppressed ? { suppressed: true } : {}),
         ...(result.functionCall ? { functionCall: result.functionCall } : {}),
         ...(result.functionParameters ? { functionParameters: result.functionParameters } : {}),
       };
       pushTurns([sdrTurn], wf.id);
-      if (result.sendMessageNow === false) {
-        toast.info?.('Workflow set send_message_now=false.');
-      }
     } catch (err) {
       toast.error('Response failed: ' + err.message);
     } finally {
@@ -231,45 +232,88 @@ export default function SimulateChatModal({
               No messages yet.
             </div>
           )}
-          {turns.map((t) => (
-            <div
-              key={t.id}
-              style={{
-                display: 'flex',
-                justifyContent: t.role === 'sdr' ? 'flex-end' : 'flex-start',
-                padding: '6px 10px',
-              }}
-            >
+          {turns.map((t) => {
+            // Suppressed SDR turns render as a centred muted system note,
+            // not as an indigo SDR bubble, because no outgoing message
+            // actually exists — the workflow only produced metadata.
+            if (t.role === 'sdr' && t.suppressed) {
+              return (
+                <div
+                  key={t.id}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    padding: '8px 10px',
+                  }}
+                >
+                  <div
+                    style={{
+                      maxWidth: '90%',
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px dashed rgba(255, 255, 255, 0.15)',
+                      color: 'var(--text-secondary)',
+                      fontSize: 12,
+                      fontStyle: 'italic',
+                      textAlign: 'center',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    AI SDR chose not to send a message
+                    {t.functionCall && (
+                      <>
+                        {' — '}
+                        <span style={{ fontFamily: 'ui-monospace, Space Mono, monospace', fontStyle: 'normal' }}>
+                          {t.functionCall}
+                          {t.functionParameters ? `(${String(t.functionParameters)})` : ''}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+            return (
               <div
+                key={t.id}
                 style={{
-                  maxWidth: '78%',
-                  padding: '10px 14px',
-                  borderRadius: 10,
-                  background: t.role === 'sdr'
-                    ? 'rgba(99, 102, 241, 0.18)'
-                    : 'rgba(255, 255, 255, 0.06)',
-                  border: '1px solid ' + (t.role === 'sdr' ? 'rgba(99, 102, 241, 0.35)' : 'rgba(255, 255, 255, 0.08)'),
-                  whiteSpace: 'pre-wrap',
-                  lineHeight: 1.45,
-                  fontSize: 13,
+                  display: 'flex',
+                  justifyContent: t.role === 'sdr' ? 'flex-end' : 'flex-start',
+                  padding: '6px 10px',
                 }}
               >
-                <div className="text-secondary text-sm" style={{ marginBottom: 4, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {t.role === 'sdr'
-                    ? 'AI SDR'
-                    : (`${persona.firstName || ''} ${persona.lastName || ''}`.trim() || 'Lead')}
-                </div>
-                {t.text}
-                {t.functionCall && (
-                  <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <span className="badge badge-delay" style={{ fontSize: 10 }}>
-                      → {t.functionCall}{t.functionParameters ? `: ${String(t.functionParameters)}` : ''}
-                    </span>
+                <div
+                  style={{
+                    maxWidth: '78%',
+                    padding: '10px 14px',
+                    borderRadius: 10,
+                    background: t.role === 'sdr'
+                      ? 'rgba(99, 102, 241, 0.18)'
+                      : 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid ' + (t.role === 'sdr' ? 'rgba(99, 102, 241, 0.35)' : 'rgba(255, 255, 255, 0.08)'),
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: 1.45,
+                    fontSize: 13,
+                  }}
+                >
+                  <div className="text-secondary text-sm" style={{ marginBottom: 4, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {t.role === 'sdr'
+                      ? 'AI SDR'
+                      : (`${persona.firstName || ''} ${persona.lastName || ''}`.trim() || 'Lead')}
                   </div>
-                )}
+                  {t.text}
+                  {t.functionCall && (
+                    <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <span className="badge badge-delay" style={{ fontSize: 10 }}>
+                        → {t.functionCall}{t.functionParameters ? `: ${String(t.functionParameters)}` : ''}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {busy && (
             <div style={{ padding: '6px 14px', color: 'var(--text-secondary)', fontSize: 12 }}>
               <span className="spinner spinner-sm"></span>{' '}

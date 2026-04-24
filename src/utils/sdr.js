@@ -120,12 +120,25 @@ export const RESPONSE_TYPES = [
   { id: 'not_right_person', label: 'Not the right person' },
 ];
 
-function responseTypeInstruction(responseType) {
+function responseTypeInstruction(responseType, language) {
   switch (responseType) {
     case 'objection':
       return 'Raise ONE concrete objection or concern (e.g. price, timing, fit, "we already have a provider", internal resourcing, legal/compliance). Be specific and professional, not hostile.';
-    case 'positive':
-      return "Accept the call-to-action in the SDR's last message directly. If they asked for a call, say yes and propose or accept a time (e.g. 'Yes, I'm open — how about next week?'). If they asked a yes/no question, answer yes. DO NOT ask a new follow-up question, DO NOT pivot to a different topic — just commit and engage with the specific ask.";
+    case 'positive': {
+      const opener = language === 'de'
+        ? 'Start with an acceptance phrase in German, e.g. "Gerne, …", "Ja, passt — …", or "Klingt gut, …".'
+        : 'Start with an acceptance phrase in English, e.g. "Yes — …", "Happy to — …", or "Sounds good, …".';
+      return [
+        "You MUST accept the call-to-action in the SDR's most recent message.",
+        "If they asked for a call or meeting: say yes and either propose a concrete time (e.g. next Tuesday morning) or accept a time they already offered.",
+        "If they asked a yes/no question: answer yes in one sentence.",
+        "Hard rules for this reply:",
+        "- Your reply MUST NOT contain a question mark. No questions of any kind, not even rhetorical or clarifying ones.",
+        "- Do not pivot to a different topic. Do not ask for more details, materials, decks, pricing, or clarification — just commit.",
+        `- ${opener}`,
+        "- Keep it to 1–2 short sentences.",
+      ].join('\n');
+    }
     case 'not_interested':
       return "Politely decline. Keep it short and friendly. Don't give reasons. Don't invite further follow-ups.";
     case 'negative':
@@ -147,7 +160,7 @@ export async function simulatePersonaReply(persona, project, turns, apiKey, lang
   const senderFirst = project?.senderFirstName || 'someone';
   const senderLast = project?.senderLastName || '';
   const transcript = transcriptToText(turns);
-  const steer = responseTypeInstruction(responseType);
+  const steer = responseTypeInstruction(responseType, language);
 
   const prompt = `You are ${persona.firstName} ${persona.lastName}, ${persona.position} at ${persona.company}.
 You are on LinkedIn and have just received a message (and possibly earlier exchanges) from ${senderFirst} ${senderLast}.
@@ -288,23 +301,40 @@ export async function runWorkflow({ workflow, persona, project, turns, customerN
   }
 
   const last = results[results.length - 1];
-  // If the last layer returned JSON with final_output (string), use that.
-  // Otherwise, fall back to the raw text.
-  let finalText;
-  if (last.json && typeof last.json.final_output === 'string' && last.json.final_output.trim()) {
-    finalText = last.json.final_output;
-  } else if (last.json && typeof last.json.final_output === 'object' && last.json.final_output) {
-    finalText = String(last.json.final_output);
-  } else {
-    finalText = last.text;
+
+  const hasJson = !!last.json;
+  const sendExplicitlyFalse = hasJson && last.json.send_message_now === false;
+  const functionCall = last.json?.function_call || null;
+  const functionParameters = last.json?.function_parameters || null;
+
+  // Extract final_output cleanly, treating "None"/"null"/empty as absent.
+  // (Production workflows commonly return final_output: None / "None" when
+  // send_message_now is False.)
+  let finalText = '';
+  const raw = last.json?.final_output;
+  if (typeof raw === 'string') {
+    const t = raw.trim();
+    if (t && t !== 'None' && t !== 'null') finalText = raw;
+  } else if (raw && typeof raw === 'object') {
+    finalText = String(raw);
   }
+
+  // Suppress the SDR bubble when the workflow explicitly opted out, or when
+  // it parsed JSON and final_output was genuinely null/None. We do NOT suppress
+  // when the model returned raw prose with no JSON at all — that's a well-
+  // formed reply we just fall back to.
+  const outputExplicitlyMissing = hasJson && !finalText;
+  const suppressed = sendExplicitlyFalse || outputExplicitlyMissing;
+
+  // If the model returned no JSON at all, use the raw response as the message.
+  if (!suppressed && !finalText) finalText = last.text;
+
   return {
     final: finalText,
-    sendMessageNow: last.json && typeof last.json.send_message_now === 'boolean'
-      ? last.json.send_message_now
-      : true,
-    functionCall: last.json?.function_call || null,
-    functionParameters: last.json?.function_parameters || null,
+    suppressed,
+    sendMessageNow: sendExplicitlyFalse ? false : true,
+    functionCall,
+    functionParameters,
     layers: results,
   };
 }
