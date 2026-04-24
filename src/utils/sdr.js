@@ -110,15 +110,44 @@ function futureTimeslots(count = 5) {
   return out.join('\n');
 }
 
+// The five steering flavours the UI exposes for the simulated prospect reply.
+// Unknown / missing → 'natural' (unbiased, used for the modal's initial seed).
+export const RESPONSE_TYPES = [
+  { id: 'objection',        label: 'Objection' },
+  { id: 'positive',         label: 'Positive' },
+  { id: 'not_interested',   label: 'Not interested' },
+  { id: 'negative',         label: 'Negative' },
+  { id: 'not_right_person', label: 'Not the right person' },
+];
+
+function responseTypeInstruction(responseType) {
+  switch (responseType) {
+    case 'objection':
+      return 'Raise ONE concrete objection or concern (e.g. price, timing, fit, "we already have a provider", internal resourcing, legal/compliance). Be specific and professional, not hostile.';
+    case 'positive':
+      return "Show clear interest. Either ask ONE follow-up question or signal you'd like to learn more / have a quick call. Don't gush.";
+    case 'not_interested':
+      return "Politely decline. Keep it short and friendly. Don't give reasons. Don't invite further follow-ups.";
+    case 'negative':
+      return 'React sharply or dismissively — annoyed, very brief, or asking them to stop reaching out. Still professional, but cold.';
+    case 'not_right_person':
+      return "Say you're not the right person for this. Either suggest a role/department to contact instead, or say you genuinely don't know who handles it.";
+    default:
+      return 'Respond naturally — you may be curious, sceptical, brief, or even dismissive depending on how well the message landed. Not every message to you hits.';
+  }
+}
+
 // Claude plays the prospect — produces ONE reply to the most-recent SDR message.
-export async function simulatePersonaReply(persona, project, turns, apiKey, lang) {
+// `responseType` (optional) steers the flavour of the reply; see RESPONSE_TYPES.
+export async function simulatePersonaReply(persona, project, turns, apiKey, lang, responseType) {
   const language = lang || project?.language || 'en';
   const langInstr = language === 'de'
-    ? 'Antworte auf Deutsch.'
-    : 'Reply in British English.';
+    ? 'Antworte auf Deutsch. Kurz halten, wie auf LinkedIn üblich.'
+    : 'Reply in British English. Keep it short, like real LinkedIn replies.';
   const senderFirst = project?.senderFirstName || 'someone';
   const senderLast = project?.senderLastName || '';
   const transcript = transcriptToText(turns);
+  const steer = responseTypeInstruction(responseType);
 
   const prompt = `You are ${persona.firstName} ${persona.lastName}, ${persona.position} at ${persona.company}.
 You are on LinkedIn and have just received a message (and possibly earlier exchanges) from ${senderFirst} ${senderLast}.
@@ -128,13 +157,15 @@ About your company (${persona.company}): ${persona.companyDescription || ''} Ind
 Conversation so far:
 ${transcript}
 
-Write ONE natural reply, in your own voice. Guidelines:
-- Be realistic — sometimes curious, sometimes sceptical, sometimes brief and dismissive. Not every message to you lands.
-- Don't be over-enthusiastic unless the message really hit the mark.
-- It's OK to ask a clarifying question, push back, or decline politely.
-- Max 120 words.
+${steer}
+
+Guidelines:
+- Keep it SHORT. Real LinkedIn replies are usually 1–3 short sentences, around 25–55 words total.
+- Sound like a real person — natural, conversational, sometimes terse.
+- Don't sign off with the sender's name or your own name.
+- Never exceed 70 words.
 - ${langInstr}
-- Output the reply text ONLY. No preamble, no quotes, no sign-off with the sender's name.`;
+- Output the reply text ONLY. No preamble, no quotes, no headers.`;
 
   return await callClaude(prompt, apiKey, 800);
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { buildVarMap, generateMessage } from '../utils/ai';
-import { simulatePersonaReply, runWorkflow } from '../utils/sdr';
+import { simulatePersonaReply, runWorkflow, RESPONSE_TYPES } from '../utils/sdr';
 import { getApiKey, getSdrWorkflow, getSdrWorkflows, getProject } from '../utils/storage';
 import { useToast } from './Toast';
 
@@ -127,7 +127,7 @@ export default function SimulateChatModal({
     }
   }, [turns.length]);
 
-  const handleRespond = async () => {
+  const handleRespond = async (responseType) => {
     const anthropicKey = getApiKey('anthropic');
     if (!anthropicKey) { toast.error('Set your Anthropic API key in Settings → AI Providers first'); return; }
     // Fallback chain: workflow the chat was started with → the project's current
@@ -168,7 +168,7 @@ export default function SimulateChatModal({
       } else {
         await new Promise((r) => setTimeout(r, 800));
         setPhase('persona');
-        const personaReply = await simulatePersonaReply(persona, project, updatedTurns, anthropicKey, lang);
+        const personaReply = await simulatePersonaReply(persona, project, updatedTurns, anthropicKey, lang, responseType);
         pushTurns([{ role: 'persona', text: personaReply }]);
       }
     } catch (err) {
@@ -270,16 +270,31 @@ export default function SimulateChatModal({
           )}
         </div>
 
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 0' }}>
+          <span
+            className="text-secondary"
+            style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 4 }}
+          >
+            Respond as lead:
+          </span>
+          {RESPONSE_TYPES.map((rt, i) => (
+            <button
+              key={rt.id}
+              className={`btn btn-sm ${i === 0 ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => handleRespond(rt.id)}
+              disabled={busy || turns.length === 0}
+              title={`Generate the SDR reply, then steer the lead's reply as "${rt.label}"`}
+            >
+              {rt.label}
+            </button>
+          ))}
+        </div>
+
         <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between' }}>
           <button className="btn btn-ghost btn-sm" onClick={handleClear} disabled={busy}>
             Clear transcript
           </button>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary" onClick={onClose}>Close</button>
-            <button className="btn btn-primary" onClick={handleRespond} disabled={busy || turns.length === 0}>
-              {busy ? <><span className="spinner spinner-sm"></span> Responding…</> : 'Respond'}
-            </button>
-          </div>
+          <button className="btn btn-secondary" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>
