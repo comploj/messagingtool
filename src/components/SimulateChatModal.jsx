@@ -23,8 +23,11 @@ export default function SimulateChatModal({
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState('idle'); // 'sdr' | 'persona' | 'idle'
   const [layerStatus, setLayerStatus] = useState(null); // { label } while a layer is running
+  const [expandedDetails, setExpandedDetails] = useState({}); // { [turnId]: true }
   const scrollRef = useRef(null);
   const seededRef = useRef(false);
+
+  const toggleDetails = (turnId) => setExpandedDetails((m) => ({ ...m, [turnId]: !m[turnId] }));
 
   const turns = existing?.turns || [];
   const workflowIdUsed = existing?.workflowIdUsed || project.sdrWorkflowId || null;
@@ -59,8 +62,10 @@ export default function SimulateChatModal({
           role: t.role,
           text: t.text,
           createdAt: new Date().toISOString(),
+          ...(t.suppressed ? { suppressed: true } : {}),
           ...(t.functionCall ? { functionCall: t.functionCall } : {}),
           ...(t.functionParameters ? { functionParameters: t.functionParameters } : {}),
+          ...(Array.isArray(t.layers) && t.layers.length > 0 ? { layers: t.layers } : {}),
         })),
       ],
     };
@@ -159,6 +164,7 @@ export default function SimulateChatModal({
         ...(result.suppressed ? { suppressed: true } : {}),
         ...(result.functionCall ? { functionCall: result.functionCall } : {}),
         ...(result.functionParameters ? { functionParameters: result.functionParameters } : {}),
+        ...(Array.isArray(result.layers) && result.layers.length > 0 ? { layers: result.layers } : {}),
       };
       pushTurns([sdrTurn], wf.id);
     } catch (err) {
@@ -233,16 +239,73 @@ export default function SimulateChatModal({
             </div>
           )}
           {turns.map((t) => {
+            const isSdr = t.role === 'sdr';
+            const hasLayers = Array.isArray(t.layers) && t.layers.length > 0;
+            const showDetails = hasLayers && !!expandedDetails[t.id];
+
+            const detailsBlock = hasLayers ? (
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => toggleDetails(t.id)}
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: 11, padding: '4px 8px' }}
+                >
+                  {showDetails ? 'Hide JSON output' : 'Show JSON output'}
+                </button>
+                {showDetails && (
+                  <div
+                    style={{
+                      marginTop: 6,
+                      width: '100%',
+                      padding: 10,
+                      borderRadius: 6,
+                      background: 'rgba(0,0,0,0.35)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      fontFamily: 'ui-monospace, Space Mono, monospace',
+                      fontSize: 11,
+                      lineHeight: 1.45,
+                      textAlign: 'left',
+                      color: 'var(--text-secondary)',
+                      maxHeight: 360,
+                      overflowY: 'auto',
+                    }}
+                  >
+                    {t.layers.map((layer, idx) => (
+                      <div key={layer.layerId || idx} style={{ marginBottom: idx < t.layers.length - 1 ? 12 : 0 }}>
+                        <div style={{ color: 'var(--accent, #6366f1)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+                          Layer {idx + 1} · {layer.label || '(unnamed)'}
+                        </div>
+                        <div style={{ marginBottom: 6, fontSize: 10, color: 'var(--text-secondary)' }}>Reasoning + raw response</div>
+                        <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#e2e8f0' }}>
+                          {layer.text || '(empty)'}
+                        </pre>
+                        {layer.json != null && (
+                          <>
+                            <div style={{ margin: '8px 0 4px', fontSize: 10, color: 'var(--text-secondary)' }}>Parsed JSON</div>
+                            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#e2e8f0' }}>
+                              {JSON.stringify(layer.json, null, 2)}
+                            </pre>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null;
+
             // Suppressed SDR turns render as a centred muted system note,
             // not as an indigo SDR bubble, because no outgoing message
             // actually exists — the workflow only produced metadata.
-            if (t.role === 'sdr' && t.suppressed) {
+            if (isSdr && t.suppressed) {
               return (
                 <div
                   key={t.id}
                   style={{
                     display: 'flex',
-                    justifyContent: 'center',
+                    flexDirection: 'column',
+                    alignItems: 'center',
                     padding: '8px 10px',
                   }}
                 >
@@ -271,6 +334,7 @@ export default function SimulateChatModal({
                       </>
                     )}
                   </div>
+                  {detailsBlock && <div style={{ width: '90%', maxWidth: '90%' }}>{detailsBlock}</div>}
                 </div>
               );
             }
@@ -279,7 +343,7 @@ export default function SimulateChatModal({
                 key={t.id}
                 style={{
                   display: 'flex',
-                  justifyContent: t.role === 'sdr' ? 'flex-end' : 'flex-start',
+                  justifyContent: isSdr ? 'flex-end' : 'flex-start',
                   padding: '6px 10px',
                 }}
               >
@@ -288,17 +352,17 @@ export default function SimulateChatModal({
                     maxWidth: '78%',
                     padding: '10px 14px',
                     borderRadius: 10,
-                    background: t.role === 'sdr'
+                    background: isSdr
                       ? 'rgba(99, 102, 241, 0.18)'
                       : 'rgba(255, 255, 255, 0.06)',
-                    border: '1px solid ' + (t.role === 'sdr' ? 'rgba(99, 102, 241, 0.35)' : 'rgba(255, 255, 255, 0.08)'),
+                    border: '1px solid ' + (isSdr ? 'rgba(99, 102, 241, 0.35)' : 'rgba(255, 255, 255, 0.08)'),
                     whiteSpace: 'pre-wrap',
                     lineHeight: 1.45,
                     fontSize: 13,
                   }}
                 >
                   <div className="text-secondary text-sm" style={{ marginBottom: 4, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    {t.role === 'sdr'
+                    {isSdr
                       ? 'AI SDR'
                       : (`${persona.firstName || ''} ${persona.lastName || ''}`.trim() || 'Lead')}
                   </div>
@@ -310,6 +374,7 @@ export default function SimulateChatModal({
                       </span>
                     </div>
                   )}
+                  {detailsBlock}
                 </div>
               </div>
             );
