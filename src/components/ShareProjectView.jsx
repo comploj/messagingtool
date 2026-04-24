@@ -128,11 +128,8 @@ export default function ShareProjectView({ token }) {
           <div className="share-footer-copy">
             Operated by{' '}
             <a href="https://leadhunt.ai" target="_blank" rel="noopener noreferrer">
-              Leadhunt
+              leadhunt.ai
             </a>
-            {' '}— a B2B sales-automation platform. This tool is used by Leadhunt's
-            clients to review and approve outbound messaging sequences. No tracking,
-            no advertising, read-only preview.
           </div>
           <div className="share-footer-links">
             <a href="https://leadhunt.ai" target="_blank" rel="noopener noreferrer">leadhunt.ai</a>
@@ -140,8 +137,6 @@ export default function ShareProjectView({ token }) {
             <a href="https://leadhunt.ai/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy policy</a>
             <span aria-hidden="true">•</span>
             <a href="https://leadhunt.ai/imprint" target="_blank" rel="noopener noreferrer">Imprint</a>
-            <span aria-hidden="true">•</span>
-            <a href="mailto:info@leadhunt.ai">info@leadhunt.ai</a>
           </div>
         </div>
       </footer>
