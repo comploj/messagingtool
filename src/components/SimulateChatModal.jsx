@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { buildVarMap, generateMessage } from '../utils/ai';
 import { simulatePersonaReply, runWorkflow } from '../utils/sdr';
-import { getApiKey, getSdrWorkflow, getSdrWorkflows } from '../utils/storage';
+import { getApiKey, getSdrWorkflow, getSdrWorkflows, getProject } from '../utils/storage';
 import { useToast } from './Toast';
 
 // One (persona × sequence) chat transcript. All turns live on
@@ -33,12 +33,19 @@ export default function SimulateChatModal({
   // Helper: push one or more turns (mutating the project's conversations map).
   // Each appended entry can carry extra metadata (functionCall, functionParameters,
   // layers) which is displayed as a small badge next to the bubble.
+  //
+  // IMPORTANT: read the freshest conversations map from storage on every call,
+  // not from the `project` closure. Two rapid pushes inside the same effect
+  // would otherwise both see the pre-push state and the second would clobber
+  // the first.
   const pushTurns = (appended, workflowOverrideId) => {
     const nowIso = new Date().toISOString();
-    const prior = project.conversations?.[convKey] || {
+    const latest = getProject(project.id) || project;
+    const priorMap = latest.conversations || {};
+    const prior = priorMap[convKey] || {
       personaId: persona.id,
       sequenceId: sequence.id,
-      workflowIdUsed: workflowOverrideId || workflowIdUsed || project.sdrWorkflowId || null,
+      workflowIdUsed: workflowOverrideId || workflowIdUsed || latest.sdrWorkflowId || null,
       turns: [],
       createdAt: nowIso,
     };
@@ -58,7 +65,7 @@ export default function SimulateChatModal({
       ],
     };
     updateProject({
-      conversations: { ...(project.conversations || {}), [convKey]: next },
+      conversations: { ...priorMap, [convKey]: next },
     });
   };
 
@@ -240,7 +247,9 @@ export default function SimulateChatModal({
                 }}
               >
                 <div className="text-secondary text-sm" style={{ marginBottom: 4, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {t.role === 'sdr' ? 'AI SDR' : persona.firstName}
+                  {t.role === 'sdr'
+                    ? (`${project.senderFirstName || ''} ${project.senderLastName || ''}`.trim() || 'AI SDR')
+                    : (`${persona.firstName || ''} ${persona.lastName || ''}`.trim() || 'Lead')}
                 </div>
                 {t.text}
                 {t.functionCall && (
