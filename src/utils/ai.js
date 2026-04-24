@@ -277,6 +277,9 @@ export async function generateICP(valueProposition, clientName, apiKey, lang = '
   const langInstr = lang === 'de'
     ? 'Write ALL field values in German. The position/role should be in German (e.g. "Leiter Einkauf" not "Head of Purchasing"). Prefer a real company headquartered in the DACH region (Germany, Austria, or Switzerland) when one plausibly fits the value proposition.'
     : 'Write ALL field values in English.';
+  const anredeInstr = lang === 'de'
+    ? 'anrede MUST be exactly "Herr" or "Frau" — pick based on the gender suggested by the invented first name.'
+    : 'anrede MUST be exactly "Mr." or "Ms." (with the trailing period) — pick based on the gender suggested by the invented first name.';
   const prompt = `You are a sales strategist. Given the following company's value proposition, identify a realistic **Ideal Customer Profile (ICP)** — a plausible decision-maker persona at a REAL, currently-operating company that would be an excellent prospect for this business.
 
 ## Our Company
@@ -293,6 +296,7 @@ ${langInstr}
 
 Return ONLY a valid JSON object with these exact fields, and nothing else:
 {
+  "anrede": "...",
   "firstName": "...",
   "lastName": "...",
   "position": "...",
@@ -311,17 +315,24 @@ Rules:
 3. companyLocation MUST match the real headquarters you found.
 4. companyDescription MUST be a detailed, factually accurate 5-8 sentence description grounded in your web_search findings — cover what they do, who they serve, which industries/markets, geographic reach, and any notable strengths. Do NOT be vague or generic; use specific product names, market segments, and client types wherever possible.
 5. The person's role MUST be the likely buyer/decision-maker for this offering at that company; the first/last name is an invented-but-plausible name for a person in that role and region (do NOT use a real individual's name).
-6. All fields must be filled — no empty strings.
-7. Your FINAL message must contain ONLY the JSON object — no markdown, no commentary, no citations around the JSON.`;
+6. ${anredeInstr}
+7. All fields must be filled — no empty strings.
+8. Your FINAL message must contain ONLY the JSON object — no markdown, no commentary, no citations around the JSON.`;
 
   const response = await callClaudeWithWebSearch(prompt, apiKey);
+  let parsed;
   try {
-    return JSON.parse(response);
+    parsed = JSON.parse(response);
   } catch {
     const match = response.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-    throw new Error('Failed to parse ICP from AI response');
+    if (!match) throw new Error('Failed to parse ICP from AI response');
+    parsed = JSON.parse(match[0]);
   }
+  // Normalise anrede to one of the exact select options (Herr/Frau/Mr./Ms.).
+  const raw = String(parsed.anrede || '').trim().toLowerCase().replace(/\./g, '');
+  const anredeMap = { herr: 'Herr', frau: 'Frau', mr: 'Mr.', ms: 'Ms.', mrs: 'Ms.', miss: 'Ms.' };
+  parsed.anrede = anredeMap[raw] || (lang === 'de' ? 'Herr' : 'Mr.');
+  return parsed;
 }
 
 export function composeValueProposition(vp) {
