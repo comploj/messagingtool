@@ -11,7 +11,7 @@ const TABS = ['Overview', 'Sequences'];
 // Viewers can edit everything (VP, lead, sequences, messages) except DELETE
 // existing sequences — the server enforces this.
 export default function ShareProjectView({ token }) {
-  const [activeTab, setActiveTab] = useState('Overview');
+  const [activeTab, setActiveTab] = useState('Sequences');
   const [state, setState] = useState({ loading: true, error: null, project: null, customer: null, version: 0 });
   const toast = useToast();
   const saveTimer = useRef(null);
