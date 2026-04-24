@@ -71,10 +71,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine Kontaktaufnahme, die Ihr Unternehmen beim Aufbau eines Kompetenzzentrums im Land des Empfängers positioniert und um dessen lokale Marktperspektive bittet.
+Eine Nachricht, die Ihr Unternehmen als Aufbauer eines Kompetenzzentrums im Land des Kontakts positioniert und gezielt nach dessen Einschätzung zum lokalen Markt fragt.
 
 Hypothese:
-Menschen fühlen sich geschmeichelt, als regionale Experten konsultiert zu werden. Das Gespräch um den Aufbau von etwas in ihrem Markt zu rahmen, verwandelt eine Kaltakquise in eine kollaborative Beratung.`,
+Menschen fühlen sich geschmeichelt, wenn man sie als Experten für ihre Region konsultiert. Wer ein Gespräch darum aufzieht, gemeinsam etwas in ihrem Markt aufzubauen, verwandelt eine Kaltakquise in eine Beratung auf Augenhöhe.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -180,10 +180,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine Kontaktaufnahme, die ein konkretes Ergebnis beschreibt, das Sie ermöglichen könnten, und klar fragt, ob dieses Ergebnis wertvoll wäre.
+Eine Nachricht, die ein konkretes Ergebnis beschreibt, das Sie dem Kontakt ermöglichen könnten, und ihn direkt fragt, ob dieses Ergebnis für ihn wertvoll wäre.
 
 Hypothese:
-Eine geschlossene Wertfrage lässt sich leichter beantworten als ein offener Pitch. "Ja, das wäre wertvoll" verpflichtet den Leser zum nächsten Schritt, ohne dass er sich verkauft fühlt.`,
+Eine geschlossene Wertfrage lässt sich leichter beantworten als ein offener Pitch. Ein „Ja, das wäre wertvoll" verpflichtet den Leser zum nächsten Schritt, ohne dass er sich in ein Verkaufsgespräch gedrängt fühlt.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -286,10 +286,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine Kontaktaufnahme, die einen Schmerzpunkt nennt, der mit dem persönlichen Verantwortungsbereich des Empfängers (nicht dem seines Unternehmens) verbunden ist.
+Eine Nachricht, die ein Problem benennt, das direkt in den persönlichen Verantwortungsbereich des Kontakts fällt — nicht nur in den seines Unternehmens.
 
 Hypothese:
-Schmerzpunkte, die um die persönliche Verantwortung des Einzelnen gerahmt sind, fühlen sich dringend und relevant an und erzielen höhere Antwortraten als allgemeine Unternehmens-Framings.`,
+Probleme, die an die persönliche Verantwortung gekoppelt sind, wirken dringender und relevanter als allgemeine Aussagen zum Unternehmen — und führen zu deutlich höheren Antwortraten.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -394,10 +394,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine sanfte Kontaktaufnahme, die das Experten-Feedback des Empfängers zu einem Produkt oder Konzept sucht.
+Eine behutsame Nachricht, die den Kontakt als Experten anspricht und um sein ehrliches Feedback zu einem Produkt oder Konzept bittet.
 
 Hypothese:
-Den Empfänger als Meinungsführer zu positionieren, fördert Vertrauen und Zusammenarbeit. Indem man nach seinen Erkenntnissen fragt (statt hart zu verkaufen), erhält man wertvolles Feedback und beginnt, eine Beziehung aufzubauen.`,
+Wer den Kontakt als Meinungsführer behandelt, schafft Vertrauen und den Rahmen für eine Zusammenarbeit. Statt zu verkaufen, fragen Sie nach seiner Einschätzung — das liefert wertvolles Feedback und legt den Grundstein für eine Beziehung.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -506,10 +506,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine Anfrage nach den Gedanken des Empfängers zu einem relevanten Branchenthema.
+Eine Nachricht, die den Kontakt um seine Sicht auf ein relevantes Branchenthema bittet.
 
 Hypothese:
-Den Empfänger in eine Diskussion über branchenweite Themen einzubinden, weckt Interesse und zeigt Respekt vor seiner Expertise. Dieser Ansatz kann zu bedeutungsvollen Gesprächen und tieferen Verbindungen führen.`,
+Ein Austausch über Branchenthemen weckt Neugier und zollt der Expertise des Kontakts Respekt. Dieser Ansatz führt oft zu echten Gesprächen und tieferen Verbindungen — statt einfach ein weiterer Pitch zu sein.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -618,10 +618,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine direkte Kontaktaufnahme, die nennt, was Sie tun, für wen es ist und warum es wichtig ist — ohne Smalltalk.
+Eine direkte Nachricht, die klar sagt, was Sie tun, für wen es relevant ist und warum — ganz ohne Smalltalk.
 
 Hypothese:
-Vielbeschäftigte Entscheider schätzen Klarheit. Den Umweg wegzulassen und den Pitch direkt zu formulieren, respektiert ihre Zeit und filtert nach Interessenten, die den Schmerzpunkt bereits haben.`,
+Entscheider mit wenig Zeit schätzen Klarheit. Wer den Umweg weglässt und direkt zum Punkt kommt, respektiert ihre Zeit und filtert automatisch nach den Kontakten, die das Problem bereits spüren.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -727,10 +727,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine Variation des direkten Pitches mit anderem Framing (z. B. stärkerer Aufhänger oder ergebnisorientierter Einstieg) zum A/B-Testen gegen V1.
+Eine Variante des direkten Pitches mit anderem Einstieg — etwa einem stärkeren Aufhänger oder einem ergebnisorientierten Opener — zum A/B-Test gegen V1.
 
 Hypothese:
-Zwei direkte Pitches mit unterschiedlichen Eröffnungen helfen zu lernen, welches Framing bei Ihrer Zielgruppe am besten ankommt, und zur konvertierungsstärksten Formulierung zu iterieren.`,
+Zwei direkte Pitches mit unterschiedlichen Eröffnungen zeigen, welche Formulierung bei Ihrer Zielgruppe besser ankommt, und ermöglichen es, schrittweise zur wirkungsvollsten Variante zu optimieren.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -829,10 +829,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine sehr kurze Kontaktaufnahme, die nur eine einzige, spezifische Frage stellt — sonst nichts.
+Eine sehr kurze Nachricht, die nur eine einzige, konkrete Frage stellt — sonst nichts.
 
 Hypothese:
-Eine kleine kognitive Anforderung senkt die Antworthürde, und spezifische Fragen wirken persönlich statt massenhaft verschickt, was zu überproportional hohen Antwortraten führt.`,
+Eine kleine geistige Hürde senkt die Schwelle zur Antwort. Spezifische Fragen wirken persönlich statt wie Massennachrichten — das führt zu überproportional hohen Antwortraten.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -929,10 +929,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine transparente Kontaktaufnahme, die offen zugibt, dass es sich um eine Kaltakquise handelt, und genau erklärt, warum Sie schreiben.
+Eine ehrliche Nachricht, die offen zugibt, dass es sich um eine Kaltakquise handelt, und genau erklärt, warum Sie ausgerechnet diesen Kontakt anschreiben.
 
 Hypothese:
-Radikale Transparenz entwaffnet Skepsis und durchbricht das Muster polierter Verkaufseröffnungen, was Wohlwollen und ehrlichere Antworten erzeugt.`,
+Radikale Ehrlichkeit entwaffnet die Skepsis, die bei Kaltakquise automatisch entsteht, und bricht mit dem Muster glatter Verkaufseinstiege. Das erzeugt Sympathie und führt zu deutlich offeneren Antworten.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -1034,10 +1034,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine Kontaktaufnahme, die darauf verweist, was Kollegen in der Rolle, Branche oder Region des Empfängers tun, und fragt, ob er dasselbe sieht.
+Eine Nachricht, die beschreibt, was andere in der Rolle, Branche oder Region des Kontakts gerade erleben, und fragt, ob er dasselbe beobachtet.
 
 Hypothese:
-Menschen vergleichen sich mit Kollegen. Das Gespräch als "das erleben andere in Ihrer Position" zu rahmen, weckt Neugier und den natürlichen Drang, sich einzubringen.`,
+Menschen vergleichen sich automatisch mit ihrem Umfeld. Wer ein Gespräch damit einleitet, was andere in einer ähnlichen Position erleben, weckt Neugier und den natürlichen Drang, sich einzubringen.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -1139,10 +1139,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine Kontaktaufnahme, die damit beginnt, dem Empfänger etwas Wertvolles (eine Erkenntnis, Ressource oder Beobachtung) zu geben, bevor irgendeine Forderung kommt.
+Eine Nachricht, die dem Kontakt etwas Wertvolles gibt — eine Erkenntnis, eine Ressource oder eine Beobachtung — bevor irgendeine Gegenleistung erwartet wird.
 
 Hypothese:
-Reziprozität ist einer der stärksten sozialen Hebel. Wenn Sie zuerst ohne Bedingungen geben, spüren Empfänger einen impliziten Drang zu antworten, was einen kollaborativen Ton setzt.`,
+Reziprozität ist einer der stärksten sozialen Hebel überhaupt. Wer zuerst ohne Bedingungen gibt, erzeugt beim Gegenüber einen natürlichen Impuls, sich zu revanchieren — und setzt damit einen kollaborativen Ton.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -1243,10 +1243,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine Kontaktaufnahme, die mit einer konkreten, spezifischen Beobachtung über das Unternehmen, die Rolle oder die jüngsten Aktivitäten des Empfängers beginnt.
+Eine Nachricht, die mit einer sehr konkreten Beobachtung zum Unternehmen, zur Rolle oder zu einer aktuellen Aktivität des Kontakts einsteigt.
 
 Hypothese:
-Hochspezifische Einstiege signalisieren, dass Sie Ihre Hausaufgaben gemacht haben und nicht massenhaft E-Mails verschicken, was Respekt und Antwortraten deutlich erhöht.`,
+Hochspezifische Einstiege signalisieren sofort, dass Sie Ihre Hausaufgaben gemacht haben und keine Massennachrichten verschicken. Das erhöht den wahrgenommenen Respekt — und damit die Antwortraten — drastisch.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -1346,10 +1346,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine Kontaktaufnahme, die eine kontraintuitive oder konträre Sichtweise zu einem Thema teilt, das dem Empfänger wichtig ist.
+Eine Nachricht, die eine gegen den Strom gerichtete oder kontraintuitive Meinung zu einem Thema teilt, das dem Kontakt wichtig ist.
 
 Hypothese:
-Starke, konträre Meinungen erzeugen Engagement (Zustimmung oder Ablehnung) weit mehr als neutrale Beobachtungen — Menschen antworten, um die Position zu verteidigen, in Frage zu stellen oder zu bestätigen.`,
+Klare, konträre Meinungen erzeugen deutlich mehr Engagement als neutrale Beobachtungen — ob durch Zustimmung oder Widerspruch. Menschen antworten, um zu verteidigen, zu widersprechen oder zu bestätigen.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
@@ -1450,10 +1450,10 @@ Output the message now.`,
     },
     de: {
       description: `Was es ist:
-Eine Kontaktaufnahme, die mit echter Empathie für die spezifischen Herausforderungen der Rolle des Empfängers beginnt.
+Eine Nachricht, die mit echter Empathie für die spezifischen Herausforderungen der Rolle des Kontakts beginnt.
 
 Hypothese:
-Die verborgenen Schwierigkeiten des Jobs einer Person anzuerkennen, signalisiert, dass Sie seine Welt verstehen, was sofortiges Vertrauen schafft und dem Empfänger das Gefühl gibt, gesehen und nicht verkauft zu werden.`,
+Wer die oft verborgenen Schwierigkeiten eines Jobs anerkennt, signalisiert, dass er die Welt des Gegenübers wirklich versteht. Das schafft sofort Nähe und gibt dem Kontakt das Gefühl, gesehen — und nicht einfach „verkauft" — zu werden.`,
       prompt: `Du bist ein LinkedIn-Nachrichten-Generator. Deine gesamte Ausgabe ist die Nachricht — nichts mehr, nichts weniger.
 
 ## Kontext zum Kontakt
