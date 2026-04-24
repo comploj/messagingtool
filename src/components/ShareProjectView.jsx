@@ -112,6 +112,7 @@ export default function ShareProjectView({ token }) {
             aria-label="Leadhunt — opens in a new tab"
           >
             <img src="/leadhunt-logo.png" alt="Leadhunt" />
+            <span className="nav-brand-text">LEADHUNT</span>
           </a>
           <span className="nav-sep">/</span>
           <span className="share-nav-label">Messaging preview</span>
