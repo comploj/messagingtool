@@ -134,7 +134,7 @@ export default function ShareProjectView({ token }) {
           <div className="share-footer-links">
             <a href="https://leadhunt.ai" target="_blank" rel="noopener noreferrer">leadhunt.ai</a>
             <span aria-hidden="true">•</span>
-            <a href="https://leadhunt.ai/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy policy</a>
+            <a href="https://www.leadhuntai.de/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy policy</a>
             <span aria-hidden="true">•</span>
             <a href="https://leadhunt.ai/imprint" target="_blank" rel="noopener noreferrer">Imprint</a>
           </div>
