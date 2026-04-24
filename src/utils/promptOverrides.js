@@ -10,6 +10,71 @@ import { getPromptOverrides, setPromptOverrides, getProjects, saveProject } from
 const DEFAULT_FIRST_MESSAGE_DELAY = 1;
 const SEP = '\n---\n';
 
+// Stale factory descriptions that existed BEFORE the "What It Is / Hypothesis"
+// rewrite. If a user clicked "Save" in Settings while these were in effect,
+// the old strings got baked into their overrides and now mask the new factory
+// text. We strip any override description that matches these old values so
+// the new factory descriptions shine through. Idempotent — running multiple
+// times is safe because the mismatch disappears after the first cleanup.
+const STALE_FACTORY_DESCRIPTIONS = {
+  'Centre of Excellence': {
+    en: "Positions your company as building a centre of excellence in the prospect's country.",
+    de: 'Positioniert Ihr Unternehmen beim Aufbau eines Kompetenzzentrums im Land des Kontakts.',
+  },
+  'Would It Be Valuable': {
+    en: "Leads with a specific outcome question tailored to the prospect's company.",
+    de: 'Beginnt mit einer spezifischen Ergebnisfrage, zugeschnitten auf das Unternehmen des Kontakts.',
+  },
+  'Responsibility-Driven Pain Point': {
+    en: "Shows empathy for the prospect's role challenges and offers a solution framed as a question.",
+    de: 'Zeigt Empathie für die Herausforderungen der Rolle und bietet eine Lösung als Frage formuliert.',
+  },
+  'Offer Feedback Request': {
+    en: 'Asks the prospect for honest feedback on your solution, positioning them as an expert.',
+    de: 'Bittet den Kontakt um ehrliches Feedback zur Lösung und positioniert ihn als Experten.',
+  },
+  'Topic Insight Request': {
+    en: "Frames outreach around a research topic relevant to the prospect's expertise.",
+    de: 'Rahmt die Kontaktaufnahme um ein Forschungsthema, das zur Expertise des Kontakts passt.',
+  },
+  'Direct Pitch V1': {
+    en: 'A direct pitch that leads with common challenges and positions your solution.',
+    de: 'Ein direkter Pitch, der mit häufigen Herausforderungen beginnt und Ihre Lösung positioniert.',
+  },
+  'Direct Pitch V2': {
+    en: "A concise direct pitch that references the prospect's industry focus and offers relevance.",
+    de: 'Ein prägnanter direkter Pitch, der den Branchenfokus des Kontakts referenziert.',
+  },
+  'Micro-Question': {
+    en: 'A short, conversational message with one easy-to-answer question.',
+    de: 'Eine kurze, umgangssprachliche Nachricht mit einer einfach zu beantwortenden Frage.',
+  },
+  'Honest Outreach': {
+    en: 'A straightforward message that openly states intent and asks if the challenge is relevant.',
+    de: 'Eine direkte Nachricht, die offen die Absicht nennt und fragt, ob die Herausforderung relevant ist.',
+  },
+  'Peer Insight': {
+    en: 'Shares a recurring theme from peers and asks if the prospect sees the same.',
+    de: 'Teilt ein wiederkehrendes Thema von Kollegen und fragt, ob der Kontakt dasselbe sieht.',
+  },
+  'Give-First': {
+    en: 'Leads by sharing a useful insight without asking for anything in return.',
+    de: 'Beginnt mit einer nützlichen Erkenntnis, ohne etwas im Gegenzug zu verlangen.',
+  },
+  'Specific Observation': {
+    en: "A short message that makes a direct observation about the prospect's company.",
+    de: 'Eine kurze Nachricht mit einer direkten Beobachtung über das Unternehmen des Kontakts.',
+  },
+  'Contrarian Take': {
+    en: 'Challenges a common industry approach and asks where the prospect stands.',
+    de: 'Hinterfragt einen gängigen Branchenansatz und fragt, wo der Kontakt steht.',
+  },
+  'Role-Empathy Opener': {
+    en: "Opens with genuine empathy for the prospect's role pressures.",
+    de: 'Beginnt mit echtem Verständnis für den Druck der Rolle des Kontakts.',
+  },
+};
+
 export function loadOverrides() {
   const o = getPromptOverrides() || { strategies: {}, staticFollowups: {} };
   // Migrate legacy full-prompt overrides down to just the body so the editor
@@ -26,8 +91,49 @@ export function loadOverrides() {
       }
     }
   }
+  // Strip stale description overrides so new factory "What It Is / Hypothesis"
+  // descriptions show up.
+  for (const [key, old] of Object.entries(STALE_FACTORY_DESCRIPTIONS)) {
+    const strat = o.strategies?.[key];
+    if (!strat || strat.custom) continue;
+    for (const lang of ['en', 'de']) {
+      if (strat[lang]?.description === old[lang]) {
+        delete strat[lang].description;
+        mutated = true;
+      }
+    }
+  }
   if (mutated) setPromptOverrides(o);
   return o;
+}
+
+// Update any project sequence whose description still matches the old stale
+// factory text, so "Show descriptions" in the Sequences tab reflects the new
+// text. Returns the number of projects changed.
+export function migrateStaleSequenceDescriptions() {
+  const projects = getProjects();
+  let changedCount = 0;
+  for (const project of projects) {
+    const lang = project.language || 'en';
+    let projectChanged = false;
+    for (const seq of project.sequences || []) {
+      if (!seq.strategyKey) continue;
+      const old = STALE_FACTORY_DESCRIPTIONS[seq.strategyKey];
+      if (!old) continue;
+      if (seq.description === old[lang]) {
+        const eff = getEffectiveStrategy(seq.strategyKey, lang);
+        if (eff.description && eff.description !== seq.description) {
+          seq.description = eff.description;
+          projectChanged = true;
+        }
+      }
+    }
+    if (projectChanged) {
+      saveProject(project);
+      changedCount++;
+    }
+  }
+  return changedCount;
 }
 export function saveOverrides(o) {
   setPromptOverrides(o);

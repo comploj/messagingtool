@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getAuth, clearAuth, getApiKey, hydrateFromServer, getCustomer, getProjects } from './utils/storage';
+import { loadOverrides, migrateStaleSequenceDescriptions } from './utils/promptOverrides';
 import Login from './components/Login';
 import Nav from './components/Nav';
 import Projects from './components/Projects';
@@ -40,6 +41,16 @@ function AppAuthed() {
     let cancelled = false;
     (async () => {
       try { await hydrateFromServer(); } catch (err) { console.error('[hydrate] failed', err); }
+      if (cancelled) return;
+      // One-time cleanup: strip stale override descriptions from the
+      // pre-rewrite factory, then update any project sequence descriptions
+      // that still match the old factory text.
+      try {
+        loadOverrides();
+        migrateStaleSequenceDescriptions();
+      } catch (err) {
+        console.error('[desc-migrate] failed', err);
+      }
       if (!cancelled) setHydrated(true);
     })();
     const id = setInterval(() => { hydrateFromServer().catch(() => {}); }, 30_000);
