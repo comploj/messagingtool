@@ -125,7 +125,7 @@ function responseTypeInstruction(responseType) {
     case 'objection':
       return 'Raise ONE concrete objection or concern (e.g. price, timing, fit, "we already have a provider", internal resourcing, legal/compliance). Be specific and professional, not hostile.';
     case 'positive':
-      return "Show clear interest. Either ask ONE follow-up question or signal you'd like to learn more / have a quick call. Don't gush.";
+      return "Accept the call-to-action in the SDR's last message directly. If they asked for a call, say yes and propose or accept a time (e.g. 'Yes, I'm open — how about next week?'). If they asked a yes/no question, answer yes. DO NOT ask a new follow-up question, DO NOT pivot to a different topic — just commit and engage with the specific ask.";
     case 'not_interested':
       return "Politely decline. Keep it short and friendly. Don't give reasons. Don't invite further follow-ups.";
     case 'negative':
