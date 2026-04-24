@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { buildVarMap, generateMessage } from '../utils/ai';
 import { simulatePersonaReply, runWorkflow } from '../utils/sdr';
-import { getApiKey, getSdrWorkflow } from '../utils/storage';
+import { getApiKey, getSdrWorkflow, getSdrWorkflows } from '../utils/storage';
 import { useToast } from './Toast';
 
 // One (persona × sequence) chat transcript. All turns live on
@@ -123,8 +123,13 @@ export default function SimulateChatModal({
   const handleRespond = async () => {
     const anthropicKey = getApiKey('anthropic');
     if (!anthropicKey) { toast.error('Set your Anthropic API key in Settings → AI Providers first'); return; }
-    const wf = workflow || getSdrWorkflow(project.sdrWorkflowId);
-    if (!wf) { toast.error('Pick an SDR workflow in the playground first'); return; }
+    // Fallback chain: workflow the chat was started with → the project's current
+    // choice → the first workflow that exists. So a fresh project that never
+    // opened Settings still works out of the box.
+    const wf = workflow
+      || getSdrWorkflow(project.sdrWorkflowId)
+      || getSdrWorkflows()[0];
+    if (!wf) { toast.error('No SDR workflow exists — add one in Settings → AI SDR Workflows'); return; }
     if (busy) return;
     setBusy(true);
     try {

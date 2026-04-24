@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { generatePersonas } from '../utils/sdr';
 import { composeValueProposition } from '../utils/ai';
 import { getApiKey, getSdrWorkflows, getCustomer } from '../utils/storage';
@@ -14,6 +14,15 @@ export default function AiSdrPlayground({ project, updateProject }) {
 
   const workflows = getSdrWorkflows();
   const activeWorkflowId = project.sdrWorkflowId || workflows[0]?.id || null;
+
+  // If the project doesn't have a workflow yet but workflows exist,
+  // persist the default choice so the chat modal has something to run.
+  useEffect(() => {
+    if (!project.sdrWorkflowId && workflows[0]?.id) {
+      updateProject({ sdrWorkflowId: workflows[0].id });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id]);
   const customer = project.customerId ? getCustomer(project.customerId) : null;
   const customerName = customer?.name || project.clientName || '';
   const personas = Array.isArray(project.personas) ? project.personas : [];
