@@ -5,6 +5,34 @@ import { ACCESS_TOKENS } from './config.js';
 
 const STORE_FILE = join(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'store.json');
 
+const DEFAULT_SDR_WORKFLOW_PROMPT = `You are an AI SDR messaging on LinkedIn on behalf of {MyNameFirst} {MyNameLast}.
+
+## What we offer
+{ValueProposition}
+
+## The prospect
+- Name: {PersonaFirstName} {PersonaLastName}
+- Role: {PersonaPosition} at {PersonaCompany}
+- Company: {PersonaCompanyDescription}
+- Industry: {PersonaIndustry}
+- Location: {PersonaLocation}
+
+## Conversation so far
+{Transcript}
+
+## Your reply
+Write ONE reply, in a warm consultative tone. Acknowledge what {PersonaFirstName} said. Ask one concrete question that moves the conversation forward. Never pitch. Never promise outcomes. 120 words max. Write in {Language}. Output the reply text only — no preamble, no sign-off line repeating your name.`;
+
+function defaultSdrWorkflows() {
+  return [{
+    id: 'default-sdr',
+    name: 'Default SDR',
+    description: 'Warm, consultative, short. Asks a question, never pitches.',
+    prompt: DEFAULT_SDR_WORKFLOW_PROMPT,
+    createdAt: new Date().toISOString(),
+  }];
+}
+
 function emptyStore() {
   return {
     version: 0,
@@ -12,6 +40,7 @@ function emptyStore() {
     customers: [],
     promptOverrides: { strategies: {}, staticFollowups: {} },
     customTokens: [],
+    sdrWorkflows: defaultSdrWorkflows(),
   };
 }
 
@@ -65,12 +94,16 @@ export async function readStore() {
   } catch {
     return emptyStore();
   }
+  const sdrWorkflows = Array.isArray(parsed.sdrWorkflows) && parsed.sdrWorkflows.length > 0
+    ? parsed.sdrWorkflows
+    : defaultSdrWorkflows();
   const base = {
     version: Number(parsed.version) || 0,
     projects: Array.isArray(parsed.projects) ? parsed.projects : [],
     customers: Array.isArray(parsed.customers) ? parsed.customers : [],
     promptOverrides: parsed.promptOverrides || { strategies: {}, staticFollowups: {} },
     customTokens: Array.isArray(parsed.customTokens) ? parsed.customTokens : [],
+    sdrWorkflows,
   };
   return migrateStore(base);
 }
@@ -119,6 +152,7 @@ export async function handlePutState(req, res) {
     customers: Array.isArray(state?.customers) ? state.customers : current.customers,
     promptOverrides: state?.promptOverrides ?? current.promptOverrides,
     customTokens: Array.isArray(state?.customTokens) ? state.customTokens : current.customTokens,
+    sdrWorkflows: Array.isArray(state?.sdrWorkflows) ? state.sdrWorkflows : current.sdrWorkflows,
   };
   await writeStore(next);
   res.json({ ok: true, version: next.version });

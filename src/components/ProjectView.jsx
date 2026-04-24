@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { getProject, saveProject } from '../utils/storage';
 import Overview from './Overview';
 import Sequences from './Sequences';
+import AiSdrPlayground from './AiSdrPlayground';
 
-const TABS = ['Overview', 'Sequences'];
+const TABS = ['Overview', 'Sequences', 'AI SDR Playground'];
 
 export default function ProjectView({ projectId }) {
   const [activeTab, setActiveTab] = useState('Overview');
@@ -66,6 +67,12 @@ export default function ProjectView({ projectId }) {
       )}
       {activeTab === 'Sequences' && (
         <Sequences
+          project={project}
+          updateProject={updateProject}
+        />
+      )}
+      {activeTab === 'AI SDR Playground' && (
+        <AiSdrPlayground
           project={project}
           updateProject={updateProject}
         />

@@ -121,6 +121,7 @@ export default defineConfig({
               customers: Array.isArray(state?.customers) ? state.customers : current.customers,
               promptOverrides: state?.promptOverrides ?? current.promptOverrides,
               customTokens: Array.isArray(state?.customTokens) ? state.customTokens : current.customTokens,
+              sdrWorkflows: Array.isArray(state?.sdrWorkflows) ? state.sdrWorkflows : current.sdrWorkflows,
             };
             await writeStore(next);
             sendJson(res, 200, { ok: true, version: next.version });

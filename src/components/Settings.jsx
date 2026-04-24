@@ -3,6 +3,7 @@ import { getApiKey, setApiKey, getCustomTokens, addCustomToken } from '../utils/
 import { ACCESS_TOKENS } from '../config';
 import { useToast } from './Toast';
 import SequencePromptsEditor from './SequencePromptsEditor';
+import SdrWorkflowsEditor from './SdrWorkflowsEditor';
 
 export default function Settings() {
   const [apiKey, setApiKeyState] = useState(getApiKey());
@@ -81,6 +82,7 @@ export default function Settings() {
       </div>
 
       <SequencePromptsEditor />
+      <SdrWorkflowsEditor />
     </div>
   );
 }

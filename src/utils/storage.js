@@ -7,6 +7,7 @@ const KEYS = {
   CUSTOMERS: 'leadhunt_customers',
   CUSTOM_TOKENS: 'leadhunt_custom_tokens',
   PROMPT_OVERRIDES: 'leadhunt_prompt_overrides',
+  SDR_WORKFLOWS: 'leadhunt_sdr_workflows',
   STATE_VERSION: 'leadhunt_state_version',
 };
 
@@ -35,6 +36,7 @@ export async function hydrateFromServer() {
     JSON.stringify(s.promptOverrides || { strategies: {}, staticFollowups: {} })
   );
   localStorage.setItem(KEYS.CUSTOM_TOKENS, JSON.stringify(s.customTokens || []));
+  localStorage.setItem(KEYS.SDR_WORKFLOWS, JSON.stringify(s.sdrWorkflows || []));
   setStateVersion(Number(s.version) || 0);
 }
 
@@ -54,6 +56,7 @@ async function flushSync() {
       customers: getCustomers(),
       promptOverrides: getPromptOverrides() || { strategies: {}, staticFollowups: {} },
       customTokens: getCustomTokens(),
+      sdrWorkflows: getSdrWorkflows(),
     };
     const res = await pushState(state, getStateVersion());
     if (res.conflict) {
@@ -61,11 +64,13 @@ async function flushSync() {
       // with the server's and let the user know a save was dropped.
       if (res.current) {
         localStorage.setItem(KEYS.PROJECTS, JSON.stringify(res.current.projects || []));
+        localStorage.setItem(KEYS.CUSTOMERS, JSON.stringify(res.current.customers || []));
         localStorage.setItem(
           KEYS.PROMPT_OVERRIDES,
           JSON.stringify(res.current.promptOverrides || { strategies: {}, staticFollowups: {} })
         );
         localStorage.setItem(KEYS.CUSTOM_TOKENS, JSON.stringify(res.current.customTokens || []));
+        localStorage.setItem(KEYS.SDR_WORKFLOWS, JSON.stringify(res.current.sdrWorkflows || []));
         setStateVersion(Number(res.current.version) || 0);
       } else {
         await hydrateFromServer();
@@ -317,5 +322,33 @@ export function getPromptOverrides() {
 }
 export function setPromptOverrides(obj) {
   localStorage.setItem(KEYS.PROMPT_OVERRIDES, JSON.stringify(obj));
+  scheduleSync();
+}
+
+// AI SDR workflows — shared across all projects. Each workflow has a prompt
+// template a project can pick via `project.sdrWorkflowId`.
+export function getSdrWorkflows() {
+  try {
+    return JSON.parse(localStorage.getItem(KEYS.SDR_WORKFLOWS)) || [];
+  } catch {
+    return [];
+  }
+}
+
+export function getSdrWorkflow(id) {
+  return getSdrWorkflows().find((w) => w.id === id) || null;
+}
+
+export function saveSdrWorkflow(workflow) {
+  const list = getSdrWorkflows();
+  const idx = list.findIndex((w) => w.id === workflow.id);
+  if (idx >= 0) list[idx] = workflow; else list.push(workflow);
+  localStorage.setItem(KEYS.SDR_WORKFLOWS, JSON.stringify(list));
+  scheduleSync();
+}
+
+export function deleteSdrWorkflow(id) {
+  const list = getSdrWorkflows().filter((w) => w.id !== id);
+  localStorage.setItem(KEYS.SDR_WORKFLOWS, JSON.stringify(list));
   scheduleSync();
 }
