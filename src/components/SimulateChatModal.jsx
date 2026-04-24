@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { buildVarMap, generateMessage } from '../utils/ai';
-import { simulatePersonaReply, generateSdrReply } from '../utils/sdr';
+import { simulatePersonaReply, runWorkflow } from '../utils/sdr';
 import { getApiKey, getSdrWorkflow } from '../utils/storage';
 import { useToast } from './Toast';
 
@@ -22,6 +22,7 @@ export default function SimulateChatModal({
 
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState('idle'); // 'sdr' | 'persona' | 'idle'
+  const [layerStatus, setLayerStatus] = useState(null); // { label } while a layer is running
   const scrollRef = useRef(null);
   const seededRef = useRef(false);
 
@@ -29,7 +30,9 @@ export default function SimulateChatModal({
   const workflowIdUsed = existing?.workflowIdUsed || project.sdrWorkflowId || null;
   const workflow = workflowIdUsed ? getSdrWorkflow(workflowIdUsed) : null;
 
-  // Helper: push a turn (mutating the project's conversations map).
+  // Helper: push one or more turns (mutating the project's conversations map).
+  // Each appended entry can carry extra metadata (functionCall, functionParameters,
+  // layers) which is displayed as a small badge next to the bubble.
   const pushTurns = (appended, workflowOverrideId) => {
     const nowIso = new Date().toISOString();
     const prior = project.conversations?.[convKey] || {
@@ -49,6 +52,8 @@ export default function SimulateChatModal({
           role: t.role,
           text: t.text,
           createdAt: new Date().toISOString(),
+          ...(t.functionCall ? { functionCall: t.functionCall } : {}),
+          ...(t.functionParameters ? { functionParameters: t.functionParameters } : {}),
         })),
       ],
     };
@@ -116,8 +121,8 @@ export default function SimulateChatModal({
   }, [turns.length]);
 
   const handleRespond = async () => {
-    const apiKey = getApiKey();
-    if (!apiKey) { toast.error('Set your Anthropic API key in Settings first'); return; }
+    const anthropicKey = getApiKey('anthropic');
+    if (!anthropicKey) { toast.error('Set your Anthropic API key in Settings → AI Providers first'); return; }
     const wf = workflow || getSdrWorkflow(project.sdrWorkflowId);
     if (!wf) { toast.error('Pick an SDR workflow in the playground first'); return; }
     if (busy) return;
@@ -125,19 +130,40 @@ export default function SimulateChatModal({
     try {
       setPhase('sdr');
       const lang = project.language || 'en';
-      const sdrReply = await generateSdrReply({
-        workflow: wf, persona, project, turns, customerName, apiKey, lang,
+      const result = await runWorkflow({
+        workflow: wf,
+        persona,
+        project,
+        turns,
+        customerName,
+        lang,
+        onProgress: ({ index, label, status }) => {
+          if (status === 'running') setLayerStatus({ label: `Layer ${index + 1}: ${label}…` });
+          else setLayerStatus(null);
+        },
       });
-      pushTurns([{ role: 'sdr', text: sdrReply }], wf.id);
-      const updatedTurns = [...turns, { role: 'sdr', text: sdrReply }];
-      await new Promise((r) => setTimeout(r, 800));
-      setPhase('persona');
-      const personaReply = await simulatePersonaReply(persona, project, updatedTurns, apiKey, lang);
-      pushTurns([{ role: 'persona', text: personaReply }]);
+      setLayerStatus(null);
+      const sdrTurn = {
+        role: 'sdr',
+        text: result.final,
+        ...(result.functionCall ? { functionCall: result.functionCall } : {}),
+        ...(result.functionParameters ? { functionParameters: result.functionParameters } : {}),
+      };
+      pushTurns([sdrTurn], wf.id);
+      const updatedTurns = [...turns, { role: 'sdr', text: result.final }];
+      if (result.sendMessageNow === false) {
+        toast.info?.('Workflow set send_message_now=false — no prospect reply generated.');
+      } else {
+        await new Promise((r) => setTimeout(r, 800));
+        setPhase('persona');
+        const personaReply = await simulatePersonaReply(persona, project, updatedTurns, anthropicKey, lang);
+        pushTurns([{ role: 'persona', text: personaReply }]);
+      }
     } catch (err) {
       toast.error('Response failed: ' + err.message);
     } finally {
       setPhase('idle');
+      setLayerStatus(null);
       setBusy(false);
     }
   };
@@ -212,13 +238,20 @@ export default function SimulateChatModal({
                   {t.role === 'sdr' ? 'AI SDR' : persona.firstName}
                 </div>
                 {t.text}
+                {t.functionCall && (
+                  <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <span className="badge badge-delay" style={{ fontSize: 10 }}>
+                      → {t.functionCall}{t.functionParameters ? `: ${String(t.functionParameters)}` : ''}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ))}
           {busy && (
             <div style={{ padding: '6px 14px', color: 'var(--text-secondary)', fontSize: 12 }}>
               <span className="spinner spinner-sm"></span>{' '}
-              {phase === 'sdr' ? 'AI SDR is typing…' : 'Prospect is typing…'}
+              {layerStatus ? layerStatus.label : (phase === 'sdr' ? 'AI SDR is typing…' : 'Prospect is typing…')}
             </div>
           )}
         </div>

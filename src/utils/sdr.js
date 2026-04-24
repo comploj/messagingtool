@@ -1,16 +1,18 @@
 // AI SDR Playground helpers.
 // - generatePersonas: one Claude call that returns N varied, realistic personas.
 // - simulatePersonaReply: Claude plays the prospect.
-// - generateSdrReply: the project's selected SDR workflow prompt, filled in and
-//   sent to Claude, to produce the next message from our AI SDR.
+// - runWorkflow: executes a workflow's ordered layers[] against the chosen
+//   providers, threading each layer's output into the next layer's context.
 
 import { callClaude, callClaudeWithWebSearch, composeValueProposition } from './ai';
+import { callProvider, tryParseJsonLoose } from './aiProviders';
+import { render as renderJinjaLite, JinjaLiteError } from './jinjaLite';
+import { getAiProvider, getApiKey } from './storage';
 
-function parseJsonLoose(text) {
+function parseJsonLooseStrict(text) {
   if (!text) throw new Error('empty_response');
-  try { return JSON.parse(text); } catch {}
-  const m = text.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
-  if (m) return JSON.parse(m[0]);
+  const parsed = tryParseJsonLoose(text);
+  if (parsed !== null && parsed !== undefined) return parsed;
   throw new Error('Failed to parse JSON from AI response');
 }
 
@@ -59,7 +61,7 @@ Rules:
 5. Your FINAL message must contain ONLY the JSON array — no markdown, no commentary.`;
 
   const response = await callClaudeWithWebSearch(prompt, apiKey, 4096, Math.max(count, 5));
-  const parsed = parseJsonLoose(response);
+  const parsed = parseJsonLooseStrict(response);
   if (!Array.isArray(parsed)) throw new Error('Expected array of personas');
   return parsed.slice(0, count).map((p) => ({
     id: (globalThis.crypto?.randomUUID?.() || `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
@@ -76,11 +78,13 @@ Rules:
   }));
 }
 
-function transcriptToText(turns) {
+// ---------- Transcript formatting ----------
+export function transcriptToText(turns, { includeTimestamps = false } = {}) {
   if (!Array.isArray(turns) || turns.length === 0) return '(no messages yet)';
   return turns.map((t) => {
     const who = t.role === 'sdr' ? 'SDR' : 'Prospect';
-    return `${who}: ${t.text}`;
+    const ts = includeTimestamps && t.createdAt ? `[${t.createdAt}] ` : '';
+    return `${ts}${who}: ${t.text}`;
   }).join('\n\n');
 }
 
@@ -90,6 +94,20 @@ function lastByRole(turns, role) {
     if (turns[i].role === role) return turns[i].text || '';
   }
   return '';
+}
+
+// Fake future timeslots for the playground (no real calendar).
+function futureTimeslots(count = 5) {
+  const out = [];
+  const base = new Date();
+  for (let i = 0; i < count; i++) {
+    const d = new Date(base.getTime() + (i + 1) * 24 * 60 * 60 * 1000);
+    d.setHours(i % 2 === 0 ? 10 : 14, 0, 0, 0);
+    const day = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    out.push(`- ${day} at ${time}`);
+  }
+  return out.join('\n');
 }
 
 // Claude plays the prospect — produces ONE reply to the most-recent SDR message.
@@ -121,51 +139,159 @@ Write ONE natural reply, in your own voice. Guidelines:
   return await callClaude(prompt, apiKey, 800);
 }
 
-// Run the project's selected SDR workflow to produce the next SDR reply.
-const VAR_TOKENS = [
-  'PersonaFirstName', 'PersonaLastName', 'PersonaPosition',
-  'PersonaCompany', 'PersonaCompanyDescription', 'PersonaIndustry',
-  'PersonaLocation', 'Transcript', 'LastPersonaReply',
-  'MyNameFirst', 'MyNameLast', 'ValueProposition',
-  'CustomerName', 'Language',
-];
+// ---------- Workflow runner ----------
 
-function buildSdrVarMap(persona, project, turns, customerName, lang) {
+function hostFromUrl(url) {
+  if (!url) return '';
+  try { return new URL(url.startsWith('http') ? url : `https://${url}`).host.replace(/^www\./, ''); }
+  catch { return ''; }
+}
+
+function truncate(s, n) {
+  if (!s) return '';
+  return s.length > n ? s.slice(0, n).trimEnd() + '…' : s;
+}
+
+function buildWorkflowContext({ persona, project, turns, customerName, lang, plo }) {
   const language = lang || project?.language || 'en';
-  const values = {
+  const vp = composeValueProposition(project?.valueProposition) || '';
+  const ctx = {
+    // persona
+    FirstName: persona.firstName || '',
+    LastName: persona.lastName || '',
+    FullName: `${persona.firstName || ''} ${persona.lastName || ''}`.trim(),
+    Position: persona.position || '',
+    Company: persona.company || '',
+    CompanyDescription: persona.companyDescription || '',
+    CompanyIndustry: persona.companyIndustry || '',
+    PersonaLocation: persona.location || persona.companyLocation || '',
+    // legacy aliases used by some prompts
     PersonaFirstName: persona.firstName || '',
     PersonaLastName: persona.lastName || '',
     PersonaPosition: persona.position || '',
     PersonaCompany: persona.company || '',
     PersonaCompanyDescription: persona.companyDescription || '',
     PersonaIndustry: persona.companyIndustry || '',
-    PersonaLocation: persona.location || persona.companyLocation || '',
-    Transcript: transcriptToText(turns),
-    LastPersonaReply: lastByRole(turns, 'persona'),
+    // sender
     MyNameFirst: project?.senderFirstName || '',
     MyNameLast: project?.senderLastName || '',
-    ValueProposition: composeValueProposition(project?.valueProposition) || '',
+    MyNameFull: `${project?.senderFirstName || ''} ${project?.senderLastName || ''}`.trim(),
+    // deal
     CustomerName: customerName || project?.clientName || '',
+    ValueProposition: vp,
     Language: language === 'de' ? 'German' : 'English',
+    // runtime
+    Datetime: new Date().toISOString(),
+    Transcript: transcriptToText(turns),
+    Conversation: transcriptToText(turns),
+    'Conversation:include_timestamps': transcriptToText(turns, { includeTimestamps: true }),
+    Timeslots: futureTimeslots(5),
+    'Timeslots:smart': futureTimeslots(5),
+    LastPersonaReply: lastByRole(turns, 'persona'),
+    // nested objects for {{ x.y }} access
+    op: {
+      company_name: customerName || project?.clientName || '',
+      elevator_pitch: vp,
+      value_proposition: vp,
+      value_prop: vp,
+    },
+    sdr_settings: {
+      pitch_text_short: truncate(vp, 500),
+    },
+    psl: {
+      person: {
+        company: { domain: hostFromUrl(persona.companyWebsite) },
+      },
+    },
+    // plo (previous layer output) — null before layer 1
+    plo: plo || { text: '', json: {} },
   };
-  return values;
+  return ctx;
 }
 
-function substituteWorkflowVars(template, vars) {
-  if (!template) return '';
-  let out = template;
-  for (const key of VAR_TOKENS) {
-    const re = new RegExp(`\\{${key}\\}`, 'g');
-    out = out.replace(re, vars[key] ?? '');
+export async function runWorkflow({ workflow, persona, project, turns, customerName, lang, onProgress }) {
+  if (!workflow || !Array.isArray(workflow.layers) || workflow.layers.length === 0) {
+    throw new Error('Workflow has no layers');
   }
-  return out;
+
+  const results = [];
+  let plo = { text: '', json: {} };
+
+  for (let i = 0; i < workflow.layers.length; i++) {
+    const layer = workflow.layers[i];
+    const label = layer.name || `Layer ${i + 1}`;
+    if (onProgress) onProgress({ index: i, label, status: 'running' });
+
+    const ctx = buildWorkflowContext({ persona, project, turns, customerName, lang, plo });
+
+    let userPrompt;
+    let systemMessage = '';
+    try {
+      userPrompt = renderJinjaLite(layer.content || '', ctx);
+      if (layer.systemMessage) systemMessage = renderJinjaLite(layer.systemMessage, ctx);
+    } catch (err) {
+      const msg = err instanceof JinjaLiteError
+        ? `${label}: ${err.message}`
+        : `${label}: template error — ${err.message}`;
+      throw new Error(msg);
+    }
+
+    const provider = getAiProvider(layer.providerId);
+    if (!provider) throw new Error(`${label}: unknown provider "${layer.providerId}"`);
+    const apiKey = getApiKey(provider.id);
+    if (!apiKey) throw new Error(`${label}: missing API key for "${provider.name}" — set it in Settings → AI Providers`);
+
+    const text = await callProvider({
+      provider,
+      apiKey,
+      model: layer.model,
+      systemMessage,
+      userPrompt,
+      temperature: Number(layer.temperature ?? 0.6),
+      maxTokens: 1800,
+    });
+    const json = tryParseJsonLoose(text);
+    plo = { text, json: json || {} };
+    results.push({ layerId: layer.id, label, text, json });
+    if (onProgress) onProgress({ index: i, label, status: 'done' });
+  }
+
+  const last = results[results.length - 1];
+  // If the last layer returned JSON with final_output (string), use that.
+  // Otherwise, fall back to the raw text.
+  let finalText;
+  if (last.json && typeof last.json.final_output === 'string' && last.json.final_output.trim()) {
+    finalText = last.json.final_output;
+  } else if (last.json && typeof last.json.final_output === 'object' && last.json.final_output) {
+    finalText = String(last.json.final_output);
+  } else {
+    finalText = last.text;
+  }
+  return {
+    final: finalText,
+    sendMessageNow: last.json && typeof last.json.send_message_now === 'boolean'
+      ? last.json.send_message_now
+      : true,
+    functionCall: last.json?.function_call || null,
+    functionParameters: last.json?.function_parameters || null,
+    layers: results,
+  };
 }
 
-export async function generateSdrReply({ workflow, persona, project, turns, customerName, apiKey, lang }) {
-  if (!workflow || !workflow.prompt) throw new Error('No SDR workflow configured');
-  const vars = buildSdrVarMap(persona, project, turns, customerName, lang);
-  const resolved = substituteWorkflowVars(workflow.prompt, vars);
-  return await callClaude(resolved, apiKey, 1024);
+// Kept for backward-compat imports elsewhere; now delegates to runWorkflow.
+export async function generateSdrReply({ workflow, persona, project, turns, customerName, lang }) {
+  const res = await runWorkflow({ workflow, persona, project, turns, customerName, lang });
+  return res.final;
 }
 
-export const SDR_WORKFLOW_TOKENS = VAR_TOKENS.slice();
+// Variable tokens surfaced in the editor so users know what's available.
+export const SDR_WORKFLOW_TOKENS = [
+  'FirstName', 'LastName', 'FullName', 'Position', 'Company',
+  'CompanyDescription', 'CompanyIndustry', 'PersonaLocation',
+  'Transcript', 'Conversation', 'Conversation:include_timestamps',
+  'Timeslots', 'Timeslots:smart', 'LastPersonaReply',
+  'MyNameFirst', 'MyNameLast', 'MyNameFull',
+  'ValueProposition', 'CustomerName', 'Language', 'Datetime',
+  // plo.* after Layer 1
+  'plo.text', 'plo.json.situation_key', 'plo.json.final_output',
+];

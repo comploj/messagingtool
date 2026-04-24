@@ -4,6 +4,7 @@ import { ACCESS_TOKENS } from '../config';
 import { useToast } from './Toast';
 import SequencePromptsEditor from './SequencePromptsEditor';
 import SdrWorkflowsEditor from './SdrWorkflowsEditor';
+import AiProvidersEditor from './AiProvidersEditor';
 
 export default function Settings() {
   const [apiKey, setApiKeyState] = useState(getApiKey());
@@ -81,6 +82,7 @@ export default function Settings() {
         </div>
       </div>
 
+      <AiProvidersEditor />
       <SequencePromptsEditor />
       <SdrWorkflowsEditor />
     </div>
