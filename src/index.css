@@ -24,12 +24,64 @@
   --warning: #f59e0b;
   --danger: #ef4444;
   --info: #06b6d4;
+  --overlay-04: rgba(255, 255, 255, 0.04);
+  --overlay-06: rgba(255, 255, 255, 0.06);
+  --overlay-10: rgba(255, 255, 255, 0.10);
   --radius-sm: 6px;
   --radius: 8px;
   --radius-lg: 10px;
   --radius-xl: 12px;
   --font-sans: 'DM Sans', sans-serif;
   --font-mono: 'Space Mono', monospace;
+}
+
+/* Light theme — applied via body.theme-light. Only overrides palette vars;
+   layout/spacing is shared with dark theme. */
+body.theme-light {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --elevated: #f1f5f9;
+  --border: rgba(15, 23, 42, 0.08);
+  --border-strong: rgba(15, 23, 42, 0.14);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #64748b;
+  --text-muted: #94a3b8;
+  --overlay-04: rgba(15, 23, 42, 0.03);
+  --overlay-06: rgba(15, 23, 42, 0.05);
+  --overlay-10: rgba(15, 23, 42, 0.08);
+}
+
+/* Substitute hardcoded white overlays with the themeable variables so
+   surfaces (inputs, cards, hovers) flip correctly in light mode. */
+body.theme-light .input,
+body.theme-light .textarea,
+body.theme-light select {
+  background: var(--overlay-04);
+}
+body.theme-light .btn-secondary {
+  background: var(--overlay-06);
+}
+body.theme-light .btn-secondary:hover:not(:disabled) {
+  background: var(--overlay-10);
+}
+body.theme-light .btn-ghost:hover:not(:disabled) {
+  background: var(--overlay-06);
+}
+body.theme-light .badge-static {
+  background: var(--overlay-06);
+}
+body.theme-light .seq-col-description {
+  background: var(--overlay-04);
+}
+body.theme-light .modal {
+  border-color: var(--border-strong);
+}
+body.theme-light .toast {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+body.theme-light .modal-overlay {
+  background: rgba(15, 23, 42, 0.35);
 }
 
 body {

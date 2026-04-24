@@ -3,6 +3,7 @@ import { fetchShareState, pushShareState } from '../utils/apiClient';
 import { setPromptOverrides } from '../utils/storage';
 import Overview from './Overview';
 import Sequences from './Sequences';
+import ThemeToggle from './ThemeToggle';
 import { useToast } from './Toast';
 
 const TABS = ['Overview', 'Sequences'];
@@ -117,6 +118,7 @@ export default function ShareProjectView({ token }) {
           <span className="share-nav-label">Messaging preview</span>
         </div>
         <div className="nav-right">
+          <ThemeToggle />
           <span className="badge badge-delay">Collaboration link</span>
         </div>
       </header>

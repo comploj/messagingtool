@@ -1,3 +1,5 @@
+import ThemeToggle from './ThemeToggle';
+
 export default function Nav({ customerName, projectName, onBack, onSettings, onLogout }) {
   return (
     <nav className="nav">
@@ -24,6 +26,7 @@ export default function Nav({ customerName, projectName, onBack, onSettings, onL
         )}
       </div>
       <div className="nav-right">
+        <ThemeToggle />
         <button className="btn btn-ghost btn-sm" onClick={onSettings}>
           Settings
         </button>
