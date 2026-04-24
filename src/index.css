@@ -752,6 +752,30 @@ select {
   cursor: pointer;
   transition: background 0.15s ease;
 }
+/* Stacked variant: name+actions on one row, optional description below. */
+.seq-col-header-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.seq-col-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.seq-col-description {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  font-weight: 400;
+}
 .seq-col-header:hover {
   background: var(--elevated);
 }

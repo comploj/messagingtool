@@ -237,42 +237,36 @@ export default function Sequences({ project, updateProject, shareMode = false })
             {project.sequences.map((seq) => {
               const hasDesc = !!(seq.description && seq.description.trim());
               return (
-              <div key={seq.id} className="seq-col-header">
-                <span className="seq-col-name">{seq.name}</span>
+              <div key={seq.id} className="seq-col-header seq-col-header-stacked">
+                <div className="seq-col-header-row">
+                  <span className="seq-col-name">{seq.name}</span>
+                  <div className="seq-col-actions">
+                    <button
+                      className="seq-regen-btn"
+                      title="Regenerate all messages"
+                      onClick={() => handleRegenerateSeq(seq)}
+                      disabled={regeneratingId === seq.id}
+                    >
+                      {regeneratingId === seq.id
+                        ? <span className="spinner spinner-sm"></span>
+                        : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                      }
+                    </button>
+                    <button
+                      className="seq-regen-btn seq-delete-btn"
+                      title="Delete sequence"
+                      onClick={() => handleDeleteSequence(seq.id)}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                    <span className="text-secondary text-sm seq-edit-link" onClick={() => setEditingId(seq.id)}>Edit</span>
+                  </div>
+                </div>
                 {descriptionsOpen && (
-                  <div className="text-secondary text-sm" style={{
-                    marginTop: 8,
-                    padding: '10px 12px',
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid var(--border, #2a2a3e)',
-                    borderRadius: 6,
-                    whiteSpace: 'pre-wrap',
-                    lineHeight: 1.45,
-                  }}>
+                  <div className="seq-col-description">
                     {hasDesc ? seq.description : <em>No description</em>}
                   </div>
                 )}
-                <div className="seq-col-actions">
-                  <button
-                    className="seq-regen-btn"
-                    title="Regenerate all messages"
-                    onClick={() => handleRegenerateSeq(seq)}
-                    disabled={regeneratingId === seq.id}
-                  >
-                    {regeneratingId === seq.id
-                      ? <span className="spinner spinner-sm"></span>
-                      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-                    }
-                  </button>
-                  <button
-                    className="seq-regen-btn seq-delete-btn"
-                    title="Delete sequence"
-                    onClick={() => handleDeleteSequence(seq.id)}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                  </button>
-                  <span className="text-secondary text-sm seq-edit-link" onClick={() => setEditingId(seq.id)}>Edit</span>
-                </div>
               </div>
               );
             })}
