@@ -402,10 +402,10 @@ export default function SimulateChatModal({
                 {nextIsLead ? 'Lead replies as:' : 'SDR responds:'}
               </span>
               {nextIsLead
-                ? RESPONSE_TYPES.map((rt, i) => (
+                ? RESPONSE_TYPES.map((rt) => (
                     <button
                       key={rt.id}
-                      className={`btn btn-sm ${i === 0 ? 'btn-primary' : 'btn-secondary'}`}
+                      className="btn btn-sm btn-secondary"
                       onClick={() => handleProspectReply(rt.id)}
                       disabled={busy || turns.length === 0}
                       title={`Generate the lead's next reply in the "${rt.label}" style`}
