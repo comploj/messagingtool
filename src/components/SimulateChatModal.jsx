@@ -26,6 +26,11 @@ export default function SimulateChatModal({
   const [expandedDetails, setExpandedDetails] = useState({}); // { [turnId]: true }
   const scrollRef = useRef(null);
   const seededRef = useRef(false);
+  // Speculative pre-run of the SDR workflow. Populated as soon as the lead's
+  // reply is generated so that clicking "Respond" can reuse the in-flight
+  // (or already-resolved) promise instead of waiting for a cold workflow run.
+  // Shape: { key, afterTurnCount, workflowId, promise } | null
+  const prefetchRef = useRef(null);
 
   const toggleDetails = (turnId) => setExpandedDetails((m) => ({ ...m, [turnId]: !m[turnId] }));
 
@@ -128,6 +133,38 @@ export default function SimulateChatModal({
     }
   }, [turns.length]);
 
+  // Kick off the SDR workflow in the background using the just-updated
+  // transcript. Result is stashed on prefetchRef so handleRespond can reuse
+  // it. We deliberately do NOT thread onProgress here — layer status is only
+  // meaningful while the spinner is on screen.
+  const startSdrPrefetch = (nextTurns) => {
+    const anthropicKey = getApiKey('anthropic');
+    if (!anthropicKey) return;
+    const wf = workflow
+      || getSdrWorkflow(project.sdrWorkflowId)
+      || getSdrWorkflows()[0];
+    if (!wf) return;
+    const lang = project.language || 'en';
+    const promise = runWorkflow({
+      workflow: wf,
+      persona,
+      project,
+      turns: nextTurns,
+      customerName,
+      lang,
+    });
+    // Swallow rejections at the source so an unconsumed prefetch error
+    // doesn't surface as an unhandled promise rejection. handleRespond
+    // re-checks via .then/.catch when consuming the cache.
+    promise.catch(() => {});
+    prefetchRef.current = {
+      key: convKey,
+      afterTurnCount: nextTurns.length,
+      workflowId: wf.id,
+      promise,
+    };
+  };
+
   // Fires the SDR workflow ONLY. The lead's reply is a separate explicit step
   // driven by the flavour pills below.
   const handleRespond = async () => {
@@ -142,18 +179,35 @@ export default function SimulateChatModal({
     try {
       setPhase('sdr');
       const lang = project.language || 'en';
-      const result = await runWorkflow({
-        workflow: wf,
-        persona,
-        project,
-        turns,
-        customerName,
-        lang,
-        onProgress: ({ index, label, status }) => {
-          if (status === 'running') setLayerStatus({ label: `Layer ${index + 1}: ${label}…` });
-          else setLayerStatus(null);
-        },
-      });
+      const cached = prefetchRef.current;
+      const usable = cached
+        && cached.key === convKey
+        && cached.afterTurnCount === turns.length
+        && cached.workflowId === wf.id;
+      let result;
+      if (usable) {
+        try {
+          result = await cached.promise;
+        } catch {
+          // Prefetch rejected — fall back to a fresh call so the user gets
+          // a normal error path rather than a stale background error.
+          result = null;
+        }
+      }
+      if (!result) {
+        result = await runWorkflow({
+          workflow: wf,
+          persona,
+          project,
+          turns,
+          customerName,
+          lang,
+          onProgress: ({ index, label, status }) => {
+            if (status === 'running') setLayerStatus({ label: `Layer ${index + 1}: ${label}…` });
+            else setLayerStatus(null);
+          },
+        });
+      }
       setLayerStatus(null);
       // Suppressed = the workflow returned send_message_now=false OR had no
       // usable final_output. Instead of an SDR bubble with "None" (or a raw
@@ -170,6 +224,7 @@ export default function SimulateChatModal({
     } catch (err) {
       toast.error('Response failed: ' + err.message);
     } finally {
+      prefetchRef.current = null;
       setPhase('idle');
       setLayerStatus(null);
       setBusy(false);
@@ -181,12 +236,18 @@ export default function SimulateChatModal({
     const anthropicKey = getApiKey('anthropic');
     if (!anthropicKey) { toast.error('Set your Anthropic API key in Settings → AI Providers first'); return; }
     if (busy) return;
+    // Drop any leftover prefetch from a previous turn before kicking off a
+    // new lead reply. (Defence in depth — afterTurnCount also guards this.)
+    prefetchRef.current = null;
     setBusy(true);
     try {
       setPhase('persona');
       const lang = project.language || 'en';
       const personaReply = await simulatePersonaReply(persona, project, turns, anthropicKey, lang, responseType);
       pushTurns([{ role: 'persona', text: personaReply }]);
+      // Speculatively run the SDR workflow now so "Respond" feels instant.
+      const nextTurns = [...turns, { role: 'persona', text: personaReply }];
+      startSdrPrefetch(nextTurns);
     } catch (err) {
       toast.error('Lead reply failed: ' + err.message);
     } finally {
@@ -201,6 +262,7 @@ export default function SimulateChatModal({
     delete next[convKey];
     updateProject({ conversations: next });
     seededRef.current = false;
+    prefetchRef.current = null;
     onClose();
   };
 
