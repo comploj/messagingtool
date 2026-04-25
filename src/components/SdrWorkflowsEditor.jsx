@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { getSdrWorkflows, saveSdrWorkflow, deleteSdrWorkflow, getAiProviders } from '../utils/storage';
-import { SDR_WORKFLOW_TOKENS } from '../utils/sdr';
+import { SDR_WORKFLOW_TOKENS, SDR_WORKFLOW_TOKEN_GROUPS } from '../utils/sdr';
 import HighlightedTextarea from './HighlightedTextarea';
 import { useToast } from './Toast';
 
@@ -137,11 +137,30 @@ export default function SdrWorkflowsEditor() {
       {open && (
         <div style={{ padding: 12, borderTop: '1px solid var(--accent)' }}>
           <p className="text-secondary text-sm" style={{ marginTop: 0 }}>
-            Each workflow is an ordered list of layers. Layer 1 usually classifies the situation; Layer 2 uses that classification to write the reply. Available variables:{' '}
-            <span style={{ fontFamily: 'ui-monospace, Space Mono, monospace' }}>
-              {SDR_WORKFLOW_TOKENS.map((t) => `{${t}}`).join(', ')}
-            </span>.
+            Each workflow is an ordered list of layers. Layer 1 usually classifies the situation; Layer 2 uses that classification to write the reply.
           </p>
+
+          <details className="sdr-token-reference">
+            <summary>
+              Available placeholders ({SDR_WORKFLOW_TOKENS.length}) — click to expand
+            </summary>
+            <p className="text-secondary text-sm sdr-token-reference-help">
+              Drop any of these into a layer's prompt template using the
+              <code>{' {TokenName} '}</code>
+              syntax. They're substituted at run time with the persona, sender,
+              customer, and conversation data.
+            </p>
+            {SDR_WORKFLOW_TOKEN_GROUPS.map((g) => (
+              <div key={g.label} className="sdr-token-group">
+                <div className="sdr-token-group-label">{g.label}</div>
+                <div className="sdr-token-list">
+                  {g.tokens.map((t) => (
+                    <code key={t} className="sdr-token-pill">{`{${t}}`}</code>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </details>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
             <button className="btn btn-secondary btn-sm" onClick={() => setShowCreate(true)}>+ New workflow</button>

@@ -359,13 +359,56 @@ export async function generateSdrReply({ workflow, persona, project, turns, cust
 }
 
 // Variable tokens surfaced in the editor so users know what's available.
-export const SDR_WORKFLOW_TOKENS = [
-  'FirstName', 'LastName', 'FullName', 'Position', 'Company',
-  'CompanyDescription', 'CompanyIndustry', 'PersonaLocation',
-  'Transcript', 'Conversation', 'Conversation:include_timestamps',
-  'Timeslots', 'Timeslots:smart', 'LastPersonaReply',
-  'MyNameFirst', 'MyNameLast', 'MyNameFull',
-  'ValueProposition', 'CustomerName', 'Language', 'Datetime',
-  // plo.* after Layer 1
-  'plo.text', 'plo.json.situation_key', 'plo.json.final_output',
+// Grouped by purpose — mirrors the actual context shape produced by
+// buildWorkflowContext above. When you add a new context key in code,
+// add it here too so the editor surface picks it up.
+export const SDR_WORKFLOW_TOKEN_GROUPS = [
+  {
+    label: 'Persona (the lead)',
+    tokens: [
+      'FirstName', 'LastName', 'FullName', 'Position', 'Company',
+      'CompanyDescription', 'CompanyIndustry', 'PersonaLocation',
+      'PersonaFirstName', 'PersonaLastName', 'PersonaPosition',
+      'PersonaCompany', 'PersonaCompanyDescription', 'PersonaIndustry',
+    ],
+  },
+  {
+    label: 'Sender (the SDR / you)',
+    tokens: ['MyNameFirst', 'MyNameLast', 'MyNameFull'],
+  },
+  {
+    label: 'Customer & deal',
+    tokens: ['CustomerName', 'ValueProposition', 'Language', 'Datetime'],
+  },
+  {
+    label: 'Conversation history (any of these works)',
+    tokens: [
+      'Conversation', 'Transcript', 'Conversation:include_timestamps',
+      'conversation', 'transcript', 'conversation_history',
+      'conversationHistory', 'chat_history', 'chatHistory',
+      'messages', 'history',
+    ],
+  },
+  {
+    label: 'Last lead reply',
+    tokens: ['LastPersonaReply', 'last_persona_reply', 'lastReply'],
+  },
+  {
+    label: 'Scheduling',
+    tokens: ['Timeslots', 'Timeslots:smart'],
+  },
+  {
+    label: 'Previous layer output (Layer 2+)',
+    tokens: ['plo.text', 'plo.json.situation_key', 'plo.json.final_output'],
+  },
+  {
+    label: 'Nested objects',
+    tokens: [
+      'op.company_name', 'op.elevator_pitch', 'op.value_proposition',
+      'sdr_settings.pitch_text_short', 'psl.person.company.domain',
+    ],
+  },
 ];
+
+// Flat list kept as a derived export for any caller still depending on it.
+export const SDR_WORKFLOW_TOKENS = SDR_WORKFLOW_TOKEN_GROUPS.flatMap((g) => g.tokens);
