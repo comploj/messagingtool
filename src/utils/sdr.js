@@ -128,9 +128,13 @@ function responseTypeInstruction(responseType, language) {
       const opener = language === 'de'
         ? 'Start with an acceptance phrase in German, e.g. "Gerne, …", "Ja, passt — …", or "Klingt gut, …".'
         : 'Start with an acceptance phrase in English, e.g. "Yes — …", "Happy to — …", or "Sounds good, …".';
+      const proposeTime = Math.random() < 0.5;
+      const meetingLine = proposeTime
+        ? "If they asked for a call or meeting: say yes and either propose a concrete time (e.g. next Tuesday morning) or accept a time they already offered."
+        : "If they asked for a call or meeting: say yes in principle but DO NOT propose any specific day or time. Just confirm you're open to a call. Leave scheduling for a later message.";
       return [
         "You MUST accept the call-to-action in the SDR's most recent message.",
-        "If they asked for a call or meeting: say yes and either propose a concrete time (e.g. next Tuesday morning) or accept a time they already offered.",
+        meetingLine,
         "If they asked a yes/no question: answer yes in one sentence.",
         "Hard rules for this reply:",
         "- Your reply MUST NOT contain a question mark. No questions of any kind, not even rhetorical or clarifying ones.",
