@@ -293,6 +293,18 @@ export async function runWorkflow({ workflow, persona, project, turns, customerN
       throw new Error(msg);
     }
 
+    // Safety net: if the rendered prompt doesn't reference ANY conversation
+    // token, the model would otherwise see no history and refuse to respond.
+    // Auto-append the transcript so workflows can never silently lose context.
+    const transcriptText = transcriptToText(turns);
+    const hasTurns = Array.isArray(turns) && turns.length > 0;
+    const sourceTpl = (layer.content || '') + ' ' + (layer.systemMessage || '');
+    const referencesConversation = /\{\{?\s*(Conversation|Transcript|conversation|transcript|conversation_history|conversationHistory|chat_history|chatHistory|messages|history|LastPersonaReply|last_persona_reply|lastReply)(:[\w-]+)?\s*\}?\}/.test(sourceTpl);
+    if (hasTurns && !referencesConversation) {
+      const block = `\n\n## Conversation history so far\n\n${transcriptText}\n`;
+      userPrompt = `${userPrompt || ''}${block}`;
+    }
+
     const provider = getAiProvider(layer.providerId);
     if (!provider) throw new Error(`${label}: unknown provider "${layer.providerId}"`);
     const apiKey = getApiKey(provider.id);
