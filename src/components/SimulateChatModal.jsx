@@ -4,6 +4,35 @@ import { simulatePersonaReply, runWorkflow, RESPONSE_TYPES } from '../utils/sdr'
 import { getApiKey, getSdrWorkflow, getSdrWorkflows, getProject } from '../utils/storage';
 import { useToast } from './Toast';
 
+// Synthesised stand-in for the lead's upcoming reply, used as workflow input
+// for the speculative SDR run that starts the moment the user clicks a reply
+// type. Chosen to be neutral but flavour-appropriate: the SDR's prefetched
+// response will be roughly correct for the response type even if the actual
+// generated lead reply diverges in specifics.
+function stubLeadReply(responseType, lang) {
+  const isDe = lang === 'de';
+  switch (responseType) {
+    case 'objection':
+      return isDe
+        ? 'Danke, aber das passt für uns gerade nicht — Budget und Timing sind schwierig.'
+        : 'Thanks, but this is not a fit for us right now — budget and timing are tight.';
+    case 'positive':
+      return isDe
+        ? 'Klingt gut, gerne — was schlägst du vor?'
+        : 'Sounds good, happy to — what do you suggest?';
+    case 'not_interested':
+      return isDe ? 'Danke, kein Interesse.' : 'Thanks, but not for us.';
+    case 'negative':
+      return isDe ? 'Bitte schreibt mich nicht weiter an.' : 'Please stop reaching out.';
+    case 'not_right_person':
+      return isDe
+        ? 'Da bin ich nicht der richtige Ansprechpartner.'
+        : "I'm not the right person for this.";
+    default:
+      return isDe ? 'Danke, schaue ich mir an.' : 'Thanks, will take a look.';
+  }
+}
+
 // One (persona × sequence) chat transcript. All turns live on
 // project.conversations[`${personaId}__${sequenceId}`] so they sync to the
 // shared backend and survive reloads. The modal mutates that map in place
@@ -243,11 +272,18 @@ export default function SimulateChatModal({
     try {
       setPhase('persona');
       const lang = project.language || 'en';
+      // Fire the SDR workflow IN PARALLEL with the lead-reply call, using a
+      // synthesised stand-in for the upcoming reply. By the time the user
+      // clicks "Respond", the workflow has had ~T_leadReply seconds of head
+      // start instead of zero — so the response is ready (or much closer to
+      // ready) than if we'd chained after the real reply. Trade-off: the
+      // SDR's prefetched response addresses the stub, not the actual lead
+      // reply, so wording may diverge slightly from a fresh, post-reply run.
+      const stubText = stubLeadReply(responseType, lang);
+      const stubTurns = [...turns, { role: 'persona', text: stubText }];
+      startSdrPrefetch(stubTurns);
       const personaReply = await simulatePersonaReply(persona, project, turns, anthropicKey, lang, responseType);
       pushTurns([{ role: 'persona', text: personaReply }]);
-      // Speculatively run the SDR workflow now so "Respond" feels instant.
-      const nextTurns = [...turns, { role: 'persona', text: personaReply }];
-      startSdrPrefetch(nextTurns);
     } catch (err) {
       toast.error('Lead reply failed: ' + err.message);
     } finally {
