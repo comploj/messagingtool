@@ -24,6 +24,7 @@ export default function SimulateChatModal({
   const [phase, setPhase] = useState('idle'); // 'sdr' | 'persona' | 'idle'
   const [layerStatus, setLayerStatus] = useState(null); // { label } while a layer is running
   const [expandedDetails, setExpandedDetails] = useState({}); // { [turnId]: true }
+  const [customReplyText, setCustomReplyText] = useState('');
   const scrollRef = useRef(null);
   const seededRef = useRef(false);
   // Speculative pre-run of the SDR workflow. Populated as soon as the lead's
@@ -165,64 +166,94 @@ export default function SimulateChatModal({
     };
   };
 
+  // Runs the SDR workflow against an explicit transcript and appends the
+  // resulting SDR turn. Shared by `handleRespond` (state turns + optional
+  // prefetch reuse) and `handleCustomReply` (just-pushed turns, no prefetch).
+  const runSdrWorkflow = async ({ explicitTurns, allowPrefetchReuse }) => {
+    const wf = workflow
+      || getSdrWorkflow(project.sdrWorkflowId)
+      || getSdrWorkflows()[0];
+    if (!wf) { toast.error('No SDR workflow exists — add one in Settings → AI SDR Workflows'); return; }
+    setPhase('sdr');
+    const lang = project.language || 'en';
+
+    let result;
+    if (allowPrefetchReuse) {
+      const cached = prefetchRef.current;
+      const usable = cached
+        && cached.key === convKey
+        && cached.afterTurnCount === explicitTurns.length
+        && cached.workflowId === wf.id;
+      if (usable) {
+        try { result = await cached.promise; } catch { result = null; }
+      }
+    }
+    if (!result) {
+      result = await runWorkflow({
+        workflow: wf,
+        persona,
+        project,
+        turns: explicitTurns,
+        customerName,
+        lang,
+        onProgress: ({ index, label, status }) => {
+          if (status === 'running') setLayerStatus({ label: `Layer ${index + 1}: ${label}…` });
+          else setLayerStatus(null);
+        },
+      });
+    }
+    setLayerStatus(null);
+    // Suppressed = the workflow returned send_message_now=false OR had no
+    // usable final_output. Instead of an SDR bubble with "None" (or a raw
+    // JSON dump), render a compact centred note showing the decision.
+    const sdrTurn = {
+      role: 'sdr',
+      text: result.final || '',
+      ...(result.suppressed ? { suppressed: true } : {}),
+      ...(result.functionCall ? { functionCall: result.functionCall } : {}),
+      ...(result.functionParameters ? { functionParameters: result.functionParameters } : {}),
+      ...(Array.isArray(result.layers) && result.layers.length > 0 ? { layers: result.layers } : {}),
+    };
+    pushTurns([sdrTurn], wf.id);
+  };
+
   // Fires the SDR workflow ONLY. The lead's reply is a separate explicit step
   // driven by the flavour pills below.
   const handleRespond = async () => {
     const anthropicKey = getApiKey('anthropic');
     if (!anthropicKey) { toast.error('Set your Anthropic API key in Settings → AI Providers first'); return; }
-    const wf = workflow
-      || getSdrWorkflow(project.sdrWorkflowId)
-      || getSdrWorkflows()[0];
-    if (!wf) { toast.error('No SDR workflow exists — add one in Settings → AI SDR Workflows'); return; }
     if (busy) return;
     setBusy(true);
     try {
-      setPhase('sdr');
-      const lang = project.language || 'en';
-      const cached = prefetchRef.current;
-      const usable = cached
-        && cached.key === convKey
-        && cached.afterTurnCount === turns.length
-        && cached.workflowId === wf.id;
-      let result;
-      if (usable) {
-        try {
-          result = await cached.promise;
-        } catch {
-          // Prefetch rejected — fall back to a fresh call so the user gets
-          // a normal error path rather than a stale background error.
-          result = null;
-        }
-      }
-      if (!result) {
-        result = await runWorkflow({
-          workflow: wf,
-          persona,
-          project,
-          turns,
-          customerName,
-          lang,
-          onProgress: ({ index, label, status }) => {
-            if (status === 'running') setLayerStatus({ label: `Layer ${index + 1}: ${label}…` });
-            else setLayerStatus(null);
-          },
-        });
-      }
-      setLayerStatus(null);
-      // Suppressed = the workflow returned send_message_now=false OR had no
-      // usable final_output. Instead of an SDR bubble with "None" (or a raw
-      // JSON dump), render a compact centred note showing the decision.
-      const sdrTurn = {
-        role: 'sdr',
-        text: result.final || '',
-        ...(result.suppressed ? { suppressed: true } : {}),
-        ...(result.functionCall ? { functionCall: result.functionCall } : {}),
-        ...(result.functionParameters ? { functionParameters: result.functionParameters } : {}),
-        ...(Array.isArray(result.layers) && result.layers.length > 0 ? { layers: result.layers } : {}),
-      };
-      pushTurns([sdrTurn], wf.id);
+      await runSdrWorkflow({ explicitTurns: turns, allowPrefetchReuse: true });
     } catch (err) {
       toast.error('Response failed: ' + err.message);
+    } finally {
+      prefetchRef.current = null;
+      setPhase('idle');
+      setLayerStatus(null);
+      setBusy(false);
+    }
+  };
+
+  // Send a user-written lead reply, then immediately run the SDR workflow.
+  // Single click → lead bubble + SDR response, no second tap.
+  const handleCustomReply = async () => {
+    const text = customReplyText.trim();
+    if (!text) return;
+    const anthropicKey = getApiKey('anthropic');
+    if (!anthropicKey) { toast.error('Set your Anthropic API key in Settings → AI Providers first'); return; }
+    if (busy) return;
+    // No prefetch benefit here — we run the SDR straight after pushing the turn.
+    prefetchRef.current = null;
+    setBusy(true);
+    try {
+      pushTurns([{ role: 'persona', text }]);
+      setCustomReplyText('');
+      const nextTurns = [...turns, { role: 'persona', text }];
+      await runSdrWorkflow({ explicitTurns: nextTurns, allowPrefetchReuse: false });
+    } catch (err) {
+      toast.error('Send failed: ' + err.message);
     } finally {
       prefetchRef.current = null;
       setPhase('idle');
@@ -456,36 +487,70 @@ export default function SimulateChatModal({
           //   last turn was SDR (or no turns at all) → lead should reply → show pills
           //   last turn was lead → SDR should reply → show Respond button
           const nextIsLead = lastRole === 'sdr' || lastRole === null;
+          if (!nextIsLead) {
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 0' }}>
+                <span
+                  className="text-secondary"
+                  style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 4 }}
+                >
+                  SDR responds:
+                </span>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleRespond}
+                  disabled={busy}
+                >
+                  {busy ? <><span className="spinner spinner-sm"></span> Responding…</> : 'Respond'}
+                </button>
+              </div>
+            );
+          }
           return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 0' }}>
-              <span
-                className="text-secondary"
-                style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 4 }}
-              >
-                {nextIsLead ? 'Lead replies as:' : 'SDR responds:'}
-              </span>
-              {nextIsLead
-                ? RESPONSE_TYPES.map((rt) => (
-                    <button
-                      key={rt.id}
-                      className="btn btn-sm btn-secondary"
-                      onClick={() => handleProspectReply(rt.id)}
-                      disabled={busy || turns.length === 0}
-                      title={`Generate the lead's next reply in the "${rt.label}" style`}
-                    >
-                      {rt.label}
-                    </button>
-                  ))
-                : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span
+                  className="text-secondary"
+                  style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 4 }}
+                >
+                  Lead replies as:
+                </span>
+                {RESPONSE_TYPES.map((rt) => (
                   <button
-                    className="btn btn-primary btn-sm"
-                    onClick={handleRespond}
-                    disabled={busy}
+                    key={rt.id}
+                    className="btn btn-sm btn-secondary"
+                    onClick={() => handleProspectReply(rt.id)}
+                    disabled={busy || turns.length === 0}
+                    title={`Generate the lead's next reply in the "${rt.label}" style`}
                   >
-                    {busy ? <><span className="spinner spinner-sm"></span> Responding…</> : 'Respond'}
+                    {rt.label}
                   </button>
-                )
-              }
+                ))}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <textarea
+                  className="textarea"
+                  rows={2}
+                  placeholder="Or write the lead's reply yourself…"
+                  value={customReplyText}
+                  onChange={(e) => setCustomReplyText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                      e.preventDefault();
+                      handleCustomReply();
+                    }
+                  }}
+                  disabled={busy || turns.length === 0}
+                  style={{ flex: 1, minHeight: 60 }}
+                />
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleCustomReply}
+                  disabled={busy || turns.length === 0 || customReplyText.trim().length === 0}
+                >
+                  {busy ? <><span className="spinner spinner-sm"></span> Sending…</> : 'Send'}
+                </button>
+              </div>
             </div>
           );
         })()}
