@@ -18,6 +18,7 @@ export default function Sequences({ project, updateProject, shareMode = false })
   const [regeneratingId, setRegeneratingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
+  const [bulkRegenerating, setBulkRegenerating] = useState(false);
   const toast = useToast();
   const wrapperRef = useRef(null);
   const stickyScrollRef = useRef(null);
@@ -221,6 +222,41 @@ export default function Sequences({ project, updateProject, shareMode = false })
     setConfirmingBulkDelete(false);
   };
 
+  const handleBulkRegenerate = async () => {
+    if (selectedIds.size === 0 || bulkRegenerating) return;
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      toast.error('Set your Anthropic API key in Settings first');
+      return;
+    }
+    const seqs = project.sequences.filter((s) => selectedIds.has(s.id));
+    if (seqs.length === 0) return;
+    setBulkRegenerating(true);
+    const lead = project.lead || {};
+    const varMap = buildVarMap(lead, project);
+    let currentOutputs = { ...(project.outputs || {}) };
+    let failures = 0;
+    for (const seq of seqs) {
+      setRegeneratingId(seq.id);
+      for (const msg of seq.messages) {
+        try {
+          const result = await generateMessage(msg, varMap, apiKey, project.language || 'en');
+          currentOutputs[msg.id] = result;
+          updateProject({ outputs: { ...currentOutputs } });
+        } catch (err) {
+          failures += 1;
+          toast.error(`Failed: ${seq.name} — ${msg.label}: ${err.message}`);
+        }
+        if (msg.type === 'ai') await new Promise((r) => setTimeout(r, 800));
+      }
+    }
+    setRegeneratingId(null);
+    setBulkRegenerating(false);
+    if (failures === 0) {
+      toast.success(`Regenerated ${seqs.length} sequence${seqs.length === 1 ? '' : 's'}`);
+    }
+  };
+
   const handleBulkDelete = () => {
     if (selectedIds.size === 0) return;
     const toDelete = project.sequences.filter((s) => selectedIds.has(s.id));
@@ -290,8 +326,27 @@ export default function Sequences({ project, updateProject, shareMode = false })
               {selectedIds.size} selected
             </span>
             <div className="seq-bulk-actions">
-              <button className="btn btn-secondary btn-sm" onClick={clearSelection}>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={clearSelection}
+                disabled={bulkRegenerating}
+              >
                 Clear selection
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={handleBulkRegenerate}
+                disabled={bulkRegenerating || confirmingBulkDelete}
+                title="Regenerate outputs for the selected sequences"
+              >
+                {bulkRegenerating ? (
+                  <>
+                    <span className="spinner spinner-sm"></span>
+                    <span style={{ marginLeft: 6 }}>Regenerating…</span>
+                  </>
+                ) : (
+                  'Regenerate selected'
+                )}
               </button>
               {confirmingBulkDelete ? (
                 <>
@@ -312,6 +367,7 @@ export default function Sequences({ project, updateProject, shareMode = false })
                 <button
                   className="btn btn-danger btn-sm"
                   onClick={() => setConfirmingBulkDelete(true)}
+                  disabled={bulkRegenerating}
                 >
                   Delete selected
                 </button>
@@ -494,7 +550,7 @@ export default function Sequences({ project, updateProject, shareMode = false })
       {/* Prompt viewer modal */}
       {promptModal && (
         <div className="modal-overlay" onClick={() => setPromptModal(null)}>
-          <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="modal modal-xl" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{promptModal.seqName} — {promptModal.message.label}</h2>
               <button className="btn btn-ghost btn-sm" onClick={() => setPromptModal(null)}>&times;</button>
@@ -505,30 +561,32 @@ export default function Sequences({ project, updateProject, shareMode = false })
               </span>
               <span className="badge badge-delay">Day {promptModal.message.delayDays}</span>
             </div>
-            {promptModal.output && (
-              <div style={{ marginBottom: 20 }}>
-                <div className="form-label" style={{ marginBottom: 8 }}>Output</div>
-                <div className="prompt-view-output">
-                  {diffOutputWithTemplate(promptModal.message.prompt, promptModal.output).map((seg, i) =>
-                    seg.type === 'generated'
-                      ? <span key={i} className="output-generated">{seg.value}</span>
-                      : <span key={i}>{seg.value}</span>
+            <div className="prompt-view-grid">
+              {promptModal.output && (
+                <div className="prompt-view-col">
+                  <div className="form-label" style={{ marginBottom: 8 }}>Output</div>
+                  <div className="prompt-view-output">
+                    {diffOutputWithTemplate(promptModal.message.prompt, promptModal.output).map((seg, i) =>
+                      seg.type === 'generated'
+                        ? <span key={i} className="output-generated">{seg.value}</span>
+                        : <span key={i}>{seg.value}</span>
+                    )}
+                  </div>
+                  {promptDraft !== promptModal.message.prompt && (
+                    <div className="text-secondary text-sm" style={{ marginTop: 6 }}>
+                      Template changed — regenerate to refresh the output.
+                    </div>
                   )}
                 </div>
-                {promptDraft !== promptModal.message.prompt && (
-                  <div className="text-secondary text-sm" style={{ marginTop: 6 }}>
-                    Template changed — regenerate to refresh the output.
-                  </div>
-                )}
+              )}
+              <div className="prompt-view-col">
+                <div className="form-label" style={{ marginBottom: 8 }}>Message Template</div>
+                <HighlightedTextarea
+                  rows={14}
+                  value={promptDraft}
+                  onChange={(e) => setPromptDraft(e.target.value)}
+                />
               </div>
-            )}
-            <div>
-              <div className="form-label" style={{ marginBottom: 8 }}>Message Template</div>
-              <HighlightedTextarea
-                rows={14}
-                value={promptDraft}
-                onChange={(e) => setPromptDraft(e.target.value)}
-              />
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setPromptModal(null)}>Cancel</button>
