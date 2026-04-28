@@ -16,6 +16,8 @@ export default function Sequences({ project, updateProject, shareMode = false })
   const [descriptionsOpen, setDescriptionsOpen] = useState(false);
   const outputs = project.outputs || {};
   const [regeneratingId, setRegeneratingId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
   const toast = useToast();
   const wrapperRef = useRef(null);
   const stickyScrollRef = useRef(null);
@@ -52,6 +54,21 @@ export default function Sequences({ project, updateProject, shareMode = false })
 
   // Outputs now come from project.outputs (synced via updateProject),
   // so we no longer need the storage-poll mechanism.
+
+  // Drop selection IDs whose sequences were removed elsewhere.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const ids = new Set(project.sequences.map((s) => s.id));
+      let changed = false;
+      const next = new Set();
+      prev.forEach((id) => {
+        if (ids.has(id)) next.add(id);
+        else changed = true;
+      });
+      return changed ? next : prev;
+    });
+  }, [project.sequences]);
 
   const handleCreate = (e) => {
     e.preventDefault();
@@ -171,7 +188,53 @@ export default function Sequences({ project, updateProject, shareMode = false })
       sequences: project.sequences.filter((s) => s.id !== id),
       deletedSequences: [seq, ...existing.filter((s) => s.id !== id)],
     });
+    setSelectedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
     toast.success('Sequence deleted — recoverable on Overview');
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setConfirmingBulkDelete(false);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === project.sequences.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(project.sequences.map((s) => s.id)));
+    }
+    setConfirmingBulkDelete(false);
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setConfirmingBulkDelete(false);
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.size === 0) return;
+    const toDelete = project.sequences.filter((s) => selectedIds.has(s.id));
+    if (toDelete.length === 0) return;
+    const existing = Array.isArray(project.deletedSequences) ? project.deletedSequences : [];
+    const deletedIds = new Set(toDelete.map((s) => s.id));
+    updateProject({
+      sequences: project.sequences.filter((s) => !selectedIds.has(s.id)),
+      deletedSequences: [...toDelete, ...existing.filter((s) => !deletedIds.has(s.id))],
+    });
+    const count = toDelete.length;
+    setSelectedIds(new Set());
+    setConfirmingBulkDelete(false);
+    toast.success(`${count} sequence${count === 1 ? '' : 's'} deleted — recoverable on Overview`);
   };
 
   const editingSeq = project.sequences.find((s) => s.id === editingId);
@@ -221,6 +284,41 @@ export default function Sequences({ project, updateProject, shareMode = false })
         </div>
       ) : (
         <>
+        {selectedIds.size > 0 && (
+          <div className="seq-bulk-bar">
+            <span className="seq-bulk-count">
+              {selectedIds.size} selected
+            </span>
+            <div className="seq-bulk-actions">
+              <button className="btn btn-secondary btn-sm" onClick={clearSelection}>
+                Clear selection
+              </button>
+              {confirmingBulkDelete ? (
+                <>
+                  <span className="text-secondary text-sm">
+                    Delete {selectedIds.size} sequence{selectedIds.size === 1 ? '' : 's'}?
+                  </span>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setConfirmingBulkDelete(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={handleBulkDelete}>
+                    Confirm delete
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={() => setConfirmingBulkDelete(true)}
+                >
+                  Delete selected
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         <div className="seq-sticky-scroll" ref={stickyScrollRef} onScroll={handleStickyScroll}>
           <div ref={scrollInnerRef} style={{ height: 1 }} />
         </div>
@@ -233,13 +331,37 @@ export default function Sequences({ project, updateProject, shareMode = false })
             }}
           >
             {/* Header row */}
-            <div className="seq-corner-header"></div>
+            <div className="seq-corner-header">
+              <input
+                type="checkbox"
+                className="seq-col-checkbox"
+                title={selectedIds.size === project.sequences.length ? 'Deselect all' : 'Select all'}
+                checked={selectedIds.size > 0 && selectedIds.size === project.sequences.length}
+                ref={(el) => {
+                  if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < project.sequences.length;
+                }}
+                onChange={toggleSelectAll}
+              />
+            </div>
             {project.sequences.map((seq) => {
               const hasDesc = !!(seq.description && seq.description.trim());
+              const isSelected = selectedIds.has(seq.id);
               return (
-              <div key={seq.id} className="seq-col-header seq-col-header-stacked">
+              <div
+                key={seq.id}
+                className={`seq-col-header seq-col-header-stacked${isSelected ? ' seq-col-selected' : ''}`}
+              >
                 <div className="seq-col-header-row">
-                  <span className="seq-col-name">{seq.name}</span>
+                  <div className="seq-col-name-row">
+                    <input
+                      type="checkbox"
+                      className="seq-col-checkbox"
+                      title={isSelected ? 'Deselect sequence' : 'Select sequence'}
+                      checked={isSelected}
+                      onChange={() => toggleSelect(seq.id)}
+                    />
+                    <span className="seq-col-name">{seq.name}</span>
+                  </div>
                   <div className="seq-col-actions">
                     <button
                       className="seq-regen-btn"
