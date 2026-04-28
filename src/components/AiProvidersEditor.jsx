@@ -8,8 +8,8 @@ import { useToast } from './Toast';
 const BUILTIN_IDS = new Set(['anthropic', 'openai', 'nebius', 'z-ai', 'openrouter']);
 
 // Collapsible accent-tinted card in Settings. Lists all providers, lets the
-// user edit base URLs and enter per-user API keys (stored locally, never
-// synced). Builtins cannot be deleted — custom entries can.
+// user edit base URLs and enter API keys. Keys + endpoints are shared with
+// the team via /api/state. Builtins cannot be deleted — custom entries can.
 export default function AiProvidersEditor() {
   const [open, setOpen] = useState(false);
   const [providers, setProviders] = useState(() => getAiProviders());
@@ -81,13 +81,13 @@ export default function AiProvidersEditor() {
         }}
         onClick={() => setOpen((v) => !v)}
       >
-        <strong>AI Providers — keys stored locally, endpoints shared</strong>
+        <strong>AI Providers — keys and endpoints shared across the team</strong>
         <span className="text-secondary text-sm">{open ? '▼' : '▶'}</span>
       </div>
       {open && (
         <div style={{ padding: 12, borderTop: '1px solid var(--accent)' }}>
           <p className="text-secondary text-sm" style={{ marginTop: 0 }}>
-            Each SDR workflow layer picks a provider from this list. Your API key is kept in your browser only; the endpoint definitions sync across the team so anyone can re-use the same provider list.
+            Each SDR workflow layer picks a provider from this list. API keys and endpoint definitions are shared across the team — anyone who logs in can use them.
           </p>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
@@ -135,7 +135,7 @@ export default function AiProvidersEditor() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">API KEY (THIS BROWSER ONLY)</label>
+                <label className="form-label">API KEY (SHARED WITH TEAM)</label>
                 <input
                   className="input"
                   type="password"

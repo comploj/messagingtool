@@ -40,7 +40,23 @@ export async function hydrateFromServer() {
   localStorage.setItem(KEYS.CUSTOM_TOKENS, JSON.stringify(s.customTokens || []));
   localStorage.setItem(KEYS.SDR_WORKFLOWS, JSON.stringify(s.sdrWorkflows || []));
   localStorage.setItem(KEYS.AI_PROVIDERS, JSON.stringify(s.aiProviders || []));
+  // API keys are now shared via the server. Merge so locally-only keys
+  // (e.g. from before this change, or set while offline) get pushed up
+  // instead of clobbered. Server wins per-key on conflict.
+  const local = readApiKeys();
+  const legacyAnthropic = localStorage.getItem(KEYS.API_KEY);
+  if (legacyAnthropic && !local.anthropic) local.anthropic = legacyAnthropic;
+  const serverKeys = (s.apiKeys && typeof s.apiKeys === 'object' && !Array.isArray(s.apiKeys))
+    ? s.apiKeys
+    : {};
+  const merged = { ...local, ...serverKeys };
+  let needsPush = false;
+  for (const [k, v] of Object.entries(local)) {
+    if (v && !serverKeys[k]) { needsPush = true; break; }
+  }
+  writeApiKeys(merged);
   setStateVersion(Number(s.version) || 0);
+  if (needsPush) scheduleSync();
 }
 
 export function scheduleSync() {
@@ -61,6 +77,7 @@ async function flushSync() {
       customTokens: getCustomTokens(),
       sdrWorkflows: getSdrWorkflows(),
       aiProviders: getAiProviders(),
+      apiKeys: getApiKeyMap(),
     };
     const res = await pushState(state, getStateVersion());
     if (res.conflict) {
@@ -76,6 +93,10 @@ async function flushSync() {
         localStorage.setItem(KEYS.CUSTOM_TOKENS, JSON.stringify(res.current.customTokens || []));
         localStorage.setItem(KEYS.SDR_WORKFLOWS, JSON.stringify(res.current.sdrWorkflows || []));
         localStorage.setItem(KEYS.AI_PROVIDERS, JSON.stringify(res.current.aiProviders || []));
+        const serverKeys = (res.current.apiKeys && typeof res.current.apiKeys === 'object' && !Array.isArray(res.current.apiKeys))
+          ? res.current.apiKeys
+          : {};
+        writeApiKeys(serverKeys);
         setStateVersion(Number(res.current.version) || 0);
       } else {
         await hydrateFromServer();
@@ -145,7 +166,8 @@ export function clearAuth() {
   localStorage.removeItem(KEYS.AUTH);
 }
 
-// API keys — per-user, never synced.
+// API keys — shared across the team via /api/state, cached locally for
+// synchronous reads. Anyone with a valid login token can read and overwrite.
 // Backward-compatible: getApiKey() with no arg == getApiKey('anthropic') and also
 // falls back to the legacy single-key localStorage entry the first time through
 // (migrating it into the new map).
@@ -195,6 +217,8 @@ export function setApiKey(providerIdOrKey, maybeKey) {
     if (key) localStorage.setItem(KEYS.API_KEY, key);
     else localStorage.removeItem(KEYS.API_KEY);
   }
+  // Keys are now shared across the team via the server.
+  scheduleSync();
 }
 
 export function getApiKeyMap() {

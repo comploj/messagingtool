@@ -60,9 +60,10 @@ than silently breaking the system.
   `server/state.js` and the client's `storage.js` — same pattern as the
   existing `customerId` backfill.
 - The server is authoritative. localStorage is a cache.
-- Per-user secrets (Anthropic API key) stay client-side. Shared data
-  (projects, customers, prompt overrides, custom tokens) goes through
-  the server.
+- AI provider API keys are shared across the team via the server — anyone
+  with a valid login token can read and overwrite them. Projects,
+  customers, prompt overrides, custom tokens, providers and SDR
+  workflows also flow through the server.
 
 ---
 

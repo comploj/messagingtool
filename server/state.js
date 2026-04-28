@@ -103,6 +103,10 @@ function emptyStore() {
     customTokens: [],
     aiProviders: DEFAULT_AI_PROVIDERS.slice(),
     sdrWorkflows: defaultSdrWorkflows(),
+    // Map of providerId -> API key. Shared across the team because anyone
+    // with a valid login token already has full read access to /api/state.
+    // Never surfaced via the public /share/:token endpoint.
+    apiKeys: {},
   };
 }
 
@@ -175,6 +179,9 @@ export async function readStore() {
     customTokens: Array.isArray(parsed.customTokens) ? parsed.customTokens : [],
     aiProviders,
     sdrWorkflows,
+    apiKeys: (parsed.apiKeys && typeof parsed.apiKeys === 'object' && !Array.isArray(parsed.apiKeys))
+      ? parsed.apiKeys
+      : {},
   };
   return migrateStore(base);
 }
@@ -225,6 +232,9 @@ export async function handlePutState(req, res) {
     customTokens: Array.isArray(state?.customTokens) ? state.customTokens : current.customTokens,
     aiProviders: Array.isArray(state?.aiProviders) ? state.aiProviders : current.aiProviders,
     sdrWorkflows: Array.isArray(state?.sdrWorkflows) ? state.sdrWorkflows : current.sdrWorkflows,
+    apiKeys: (state?.apiKeys && typeof state.apiKeys === 'object' && !Array.isArray(state.apiKeys))
+      ? state.apiKeys
+      : current.apiKeys,
   };
   await writeStore(next);
   res.json({ ok: true, version: next.version });
