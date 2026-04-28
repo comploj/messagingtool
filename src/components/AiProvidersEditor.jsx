@@ -5,7 +5,7 @@ import {
 } from '../utils/storage';
 import { useToast } from './Toast';
 
-const BUILTIN_IDS = new Set(['anthropic', 'openai', 'nebius', 'z-ai']);
+const BUILTIN_IDS = new Set(['anthropic', 'openai', 'nebius', 'z-ai', 'openrouter']);
 
 // Collapsible accent-tinted card in Settings. Lists all providers, lets the
 // user edit base URLs and enter per-user API keys (stored locally, never

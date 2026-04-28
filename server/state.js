@@ -32,6 +32,8 @@ const DEFAULT_AI_PROVIDERS = [
     baseUrl: 'https://api.studio.nebius.ai/v1/chat/completions' },
   { id: 'z-ai', name: 'Z.AI (GLM)', kind: 'openai_compatible',
     baseUrl: 'https://api.z.ai/api/paas/v4/chat/completions' },
+  { id: 'openrouter', name: 'OpenRouter', kind: 'openai_compatible',
+    baseUrl: 'https://openrouter.ai/api/v1/chat/completions' },
 ];
 
 function defaultSdrWorkflows() {
