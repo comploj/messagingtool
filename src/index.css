@@ -252,6 +252,23 @@ select {
 .modal-lg {
   max-width: 900px;
 }
+.modal-xl {
+  max-width: 1200px;
+}
+.prompt-view-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.prompt-view-grid > .prompt-view-col:only-child {
+  grid-column: 1 / -1;
+}
+@media (max-width: 900px) {
+  .prompt-view-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .modal-header {
   display: flex;
   align-items: center;
