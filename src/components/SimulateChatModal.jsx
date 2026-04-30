@@ -25,6 +25,7 @@ export default function SimulateChatModal({
   const [layerStatus, setLayerStatus] = useState(null); // { label } while a layer is running
   const [expandedDetails, setExpandedDetails] = useState({}); // { [turnId]: true }
   const [customReplyText, setCustomReplyText] = useState('');
+  const [lastError, setLastError] = useState(null); // string shown inline if a run failed
   const scrollRef = useRef(null);
   const seededRef = useRef(false);
   // Speculative pre-run of the SDR workflow. Populated as soon as the lead's
@@ -177,44 +178,47 @@ export default function SimulateChatModal({
     setPhase('sdr');
     const lang = project.language || 'en';
 
-    let result;
-    if (allowPrefetchReuse) {
-      const cached = prefetchRef.current;
-      const usable = cached
-        && cached.key === convKey
-        && cached.afterTurnCount === explicitTurns.length
-        && cached.workflowId === wf.id;
-      if (usable) {
-        try { result = await cached.promise; } catch { result = null; }
+    try {
+      let result;
+      if (allowPrefetchReuse) {
+        const cached = prefetchRef.current;
+        const usable = cached
+          && cached.key === convKey
+          && cached.afterTurnCount === explicitTurns.length
+          && cached.workflowId === wf.id;
+        if (usable) {
+          try { result = await cached.promise; } catch { result = null; }
+        }
       }
+      if (!result) {
+        result = await runWorkflow({
+          workflow: wf,
+          persona,
+          project,
+          turns: explicitTurns,
+          customerName,
+          lang,
+          onProgress: ({ index, label, status }) => {
+            if (status === 'running') setLayerStatus({ label: `Layer ${index + 1}: ${label}…` });
+            else setLayerStatus(null);
+          },
+        });
+      }
+      // Suppressed = the workflow returned send_message_now=false OR had no
+      // usable final_output. Instead of an SDR bubble with "None" (or a raw
+      // JSON dump), render a compact centred note showing the decision.
+      const sdrTurn = {
+        role: 'sdr',
+        text: result.final || '',
+        ...(result.suppressed ? { suppressed: true } : {}),
+        ...(result.functionCall ? { functionCall: result.functionCall } : {}),
+        ...(result.functionParameters ? { functionParameters: result.functionParameters } : {}),
+        ...(Array.isArray(result.layers) && result.layers.length > 0 ? { layers: result.layers } : {}),
+      };
+      pushTurns([sdrTurn], wf.id);
+    } finally {
+      setLayerStatus(null);
     }
-    if (!result) {
-      result = await runWorkflow({
-        workflow: wf,
-        persona,
-        project,
-        turns: explicitTurns,
-        customerName,
-        lang,
-        onProgress: ({ index, label, status }) => {
-          if (status === 'running') setLayerStatus({ label: `Layer ${index + 1}: ${label}…` });
-          else setLayerStatus(null);
-        },
-      });
-    }
-    setLayerStatus(null);
-    // Suppressed = the workflow returned send_message_now=false OR had no
-    // usable final_output. Instead of an SDR bubble with "None" (or a raw
-    // JSON dump), render a compact centred note showing the decision.
-    const sdrTurn = {
-      role: 'sdr',
-      text: result.final || '',
-      ...(result.suppressed ? { suppressed: true } : {}),
-      ...(result.functionCall ? { functionCall: result.functionCall } : {}),
-      ...(result.functionParameters ? { functionParameters: result.functionParameters } : {}),
-      ...(Array.isArray(result.layers) && result.layers.length > 0 ? { layers: result.layers } : {}),
-    };
-    pushTurns([sdrTurn], wf.id);
   };
 
   // Fires the SDR workflow ONLY. The lead's reply is a separate explicit step
@@ -223,11 +227,15 @@ export default function SimulateChatModal({
     const anthropicKey = getApiKey('anthropic');
     if (!anthropicKey) { toast.error('Set your Anthropic API key in Settings → AI Providers first'); return; }
     if (busy) return;
+    setLastError(null);
     setBusy(true);
     try {
       await runSdrWorkflow({ explicitTurns: turns, allowPrefetchReuse: true });
     } catch (err) {
-      toast.error('Response failed: ' + err.message);
+      console.error('SDR workflow failed', err);
+      const msg = 'Response failed: ' + err.message;
+      toast.error(msg);
+      setLastError(msg);
     } finally {
       prefetchRef.current = null;
       setPhase('idle');
@@ -246,6 +254,7 @@ export default function SimulateChatModal({
     if (busy) return;
     // No prefetch benefit here — we run the SDR straight after pushing the turn.
     prefetchRef.current = null;
+    setLastError(null);
     setBusy(true);
     try {
       pushTurns([{ role: 'persona', text }]);
@@ -253,7 +262,10 @@ export default function SimulateChatModal({
       const nextTurns = [...turns, { role: 'persona', text }];
       await runSdrWorkflow({ explicitTurns: nextTurns, allowPrefetchReuse: false });
     } catch (err) {
-      toast.error('Send failed: ' + err.message);
+      console.error('SDR workflow failed', err);
+      const msg = 'Send failed: ' + err.message;
+      toast.error(msg);
+      setLastError(msg);
     } finally {
       prefetchRef.current = null;
       setPhase('idle');
@@ -477,6 +489,11 @@ export default function SimulateChatModal({
             <div style={{ padding: '6px 14px', color: 'var(--text-secondary)', fontSize: 12 }}>
               <span className="spinner spinner-sm"></span>{' '}
               {layerStatus ? layerStatus.label : (phase === 'sdr' ? 'AI SDR is typing…' : 'Prospect is typing…')}
+            </div>
+          )}
+          {!busy && lastError && (
+            <div style={{ padding: '6px 14px', color: 'var(--danger)', fontSize: 13 }}>
+              {lastError}
             </div>
           )}
         </div>

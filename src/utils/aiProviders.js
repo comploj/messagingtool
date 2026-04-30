@@ -20,6 +20,23 @@ function pickText(data, provider) {
   return (choice?.message?.content ?? choice?.text ?? '').trim();
 }
 
+// Wraps fetch with an AbortController-driven timeout so a hung connection
+// can never leave the UI in an indefinite "Responding…" state.
+async function fetchWithTimeout(url, init, timeoutMs) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      throw new Error(`Request to ${url} timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function callProvider({
   provider,
   apiKey,
@@ -28,13 +45,14 @@ export async function callProvider({
   userPrompt,
   temperature = 0.6,
   maxTokens = 1500,
+  timeoutMs = 90_000,
 }) {
   if (!provider) throw new Error('No provider supplied');
   if (!apiKey) throw new Error(`Missing API key for provider: ${provider.name}`);
   if (!model) throw new Error(`Layer has no model set (provider: ${provider.name})`);
 
   if (provider.kind === 'anthropic') {
-    const res = await fetch(provider.baseUrl, {
+    const res = await fetchWithTimeout(provider.baseUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -49,7 +67,7 @@ export async function callProvider({
         ...(systemMessage ? { system: systemMessage } : {}),
         messages: [{ role: 'user', content: userPrompt }],
       }),
-    });
+    }, timeoutMs);
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       throw new Error(`${provider.name} ${res.status}: ${body.slice(0, 500)}`);
@@ -61,14 +79,14 @@ export async function callProvider({
     const messages = [];
     if (systemMessage) messages.push({ role: 'system', content: systemMessage });
     messages.push({ role: 'user', content: userPrompt });
-    const res = await fetch(provider.baseUrl, {
+    const res = await fetchWithTimeout(provider.baseUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens }),
-    });
+    }, timeoutMs);
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       throw new Error(`${provider.name} ${res.status}: ${body.slice(0, 500)}`);
