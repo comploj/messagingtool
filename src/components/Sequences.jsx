@@ -1,22 +1,30 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { diffOutputWithTemplate, buildVarMap, generateMessage } from '../utils/ai';
-import { getApiKey, getCustomer } from '../utils/storage';
+import { getApiKey, getCustomer, getDefaultMessageModel, getAiProvider } from '../utils/storage';
 import { downloadSequencesXlsx } from '../utils/exportSequences';
 import SequenceEditor from './SequenceEditor';
 import HighlightedTextarea from './HighlightedTextarea';
 import { useToast } from './Toast';
 
 export default function Sequences({ project, updateProject, shareMode = false, shareToken = null }) {
-  // Mirror Overview's helper — share viewers proxy through the server with
-  // the owner's stored key; logged-in users hit Anthropic with their own.
+  // Share viewers proxy through the server (owner's stored key + chosen
+  // provider). Logged-in users dispatch directly via the configured default
+  // message-generation provider — the key it needs is the one for that
+  // provider, not necessarily Anthropic.
   const getAiCtx = () => {
     if (shareMode && shareToken) return { shareToken };
-    const apiKey = getApiKey();
+    const cfg = getDefaultMessageModel();
+    const apiKey = getApiKey(cfg.providerId);
     if (!apiKey) return null;
-    return { apiKey };
+    return {};
+  };
+  const missingKeyMessage = () => {
+    const cfg = getDefaultMessageModel();
+    const provider = getAiProvider(cfg.providerId);
+    return `Set the API key for ${provider?.name || cfg.providerId} in Settings → AI Providers.`;
   };
   const aiErrorMessage = (err) => {
-    if (err && err.ownerNoKey) return 'The owner has not set up an Anthropic API key yet';
+    if (err && err.ownerNoKey) return 'The owner has not set up an API key yet';
     return err?.message || 'Unknown error';
   };
   const [editingId, setEditingId] = useState(null);
@@ -120,7 +128,7 @@ export default function Sequences({ project, updateProject, shareMode = false, s
   const handleRegenerateSeq = async (seq) => {
     const ctx = getAiCtx();
     if (!ctx) {
-      toast.error('Set your Anthropic API key in Settings first');
+      toast.error(missingKeyMessage());
       return;
     }
     const lead = project.lead || {};
@@ -238,7 +246,7 @@ export default function Sequences({ project, updateProject, shareMode = false, s
     if (selectedIds.size === 0 || bulkRegenerating) return;
     const ctx = getAiCtx();
     if (!ctx) {
-      toast.error('Set your Anthropic API key in Settings first');
+      toast.error(missingKeyMessage());
       return;
     }
     const seqs = project.sequences.filter((s) => selectedIds.has(s.id));

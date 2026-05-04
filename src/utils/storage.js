@@ -10,8 +10,14 @@ const KEYS = {
   PROMPT_OVERRIDES: 'leadhunt_prompt_overrides',
   SDR_WORKFLOWS: 'leadhunt_sdr_workflows',
   AI_PROVIDERS: 'leadhunt_ai_providers',
+  DEFAULT_MESSAGE_MODEL: 'leadhunt_default_message_model',
   STATE_VERSION: 'leadhunt_state_version',
 };
+
+const DEFAULT_MESSAGE_MODEL_FALLBACK = Object.freeze({
+  providerId: 'anthropic',
+  model: 'claude-sonnet-4-20250514',
+});
 
 // ---------- Shared-state sync (see server/state.js) ----------
 let syncTimer = null;
@@ -40,6 +46,10 @@ export async function hydrateFromServer() {
   localStorage.setItem(KEYS.CUSTOM_TOKENS, JSON.stringify(s.customTokens || []));
   localStorage.setItem(KEYS.SDR_WORKFLOWS, JSON.stringify(s.sdrWorkflows || []));
   localStorage.setItem(KEYS.AI_PROVIDERS, JSON.stringify(s.aiProviders || []));
+  localStorage.setItem(
+    KEYS.DEFAULT_MESSAGE_MODEL,
+    JSON.stringify(s.defaultMessageModel || DEFAULT_MESSAGE_MODEL_FALLBACK)
+  );
   // API keys are now shared via the server. Merge so locally-only keys
   // (e.g. from before this change, or set while offline) get pushed up
   // instead of clobbered. Server wins per-key on conflict.
@@ -77,6 +87,7 @@ async function flushSync() {
       customTokens: getCustomTokens(),
       sdrWorkflows: getSdrWorkflows(),
       aiProviders: getAiProviders(),
+      defaultMessageModel: getDefaultMessageModel(),
       apiKeys: getApiKeyMap(),
     };
     const res = await pushState(state, getStateVersion());
@@ -93,6 +104,10 @@ async function flushSync() {
         localStorage.setItem(KEYS.CUSTOM_TOKENS, JSON.stringify(res.current.customTokens || []));
         localStorage.setItem(KEYS.SDR_WORKFLOWS, JSON.stringify(res.current.sdrWorkflows || []));
         localStorage.setItem(KEYS.AI_PROVIDERS, JSON.stringify(res.current.aiProviders || []));
+        localStorage.setItem(
+          KEYS.DEFAULT_MESSAGE_MODEL,
+          JSON.stringify(res.current.defaultMessageModel || DEFAULT_MESSAGE_MODEL_FALLBACK)
+        );
         const serverKeys = (res.current.apiKeys && typeof res.current.apiKeys === 'object' && !Array.isArray(res.current.apiKeys))
           ? res.current.apiKeys
           : {};
@@ -423,6 +438,25 @@ export function saveAiProvider(provider) {
 export function deleteAiProvider(id) {
   const list = getAiProviders().filter((p) => p.id !== id);
   localStorage.setItem(KEYS.AI_PROVIDERS, JSON.stringify(list));
+  scheduleSync();
+}
+
+// Default provider + model used for all AI message generation
+// (Sequences, Playground, Overview, Simulate Chat). SDR workflow layers
+// keep their own per-layer overrides — see SdrWorkflowsEditor.
+export function getDefaultMessageModel() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEYS.DEFAULT_MESSAGE_MODEL));
+    if (raw && typeof raw === 'object' && raw.providerId && raw.model) return raw;
+  } catch {}
+  return { ...DEFAULT_MESSAGE_MODEL_FALLBACK };
+}
+export function setDefaultMessageModel(cfg) {
+  const next = {
+    providerId: String(cfg?.providerId || DEFAULT_MESSAGE_MODEL_FALLBACK.providerId),
+    model: String(cfg?.model || DEFAULT_MESSAGE_MODEL_FALLBACK.model),
+  };
+  localStorage.setItem(KEYS.DEFAULT_MESSAGE_MODEL, JSON.stringify(next));
   scheduleSync();
 }
 

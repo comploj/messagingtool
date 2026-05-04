@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { buildVarMap, generateMessage } from '../utils/ai';
 import { simulatePersonaReply, runWorkflow, RESPONSE_TYPES } from '../utils/sdr';
-import { getApiKey, getSdrWorkflow, getSdrWorkflows, getProject } from '../utils/storage';
+import { getApiKey, getSdrWorkflow, getSdrWorkflows, getProject, getDefaultMessageModel, getAiProvider } from '../utils/storage';
 import { useToast } from './Toast';
 
 // One (persona × sequence) chat transcript. All turns live on
@@ -88,9 +88,11 @@ export default function SimulateChatModal({
     seededRef.current = true;
     if (existing && existing.turns && existing.turns.length > 0) return;
 
-    const apiKey = getApiKey();
+    const cfg = getDefaultMessageModel();
+    const apiKey = getApiKey(cfg.providerId);
     if (!apiKey) {
-      toast.error('Set your Anthropic API key in Settings first');
+      const provider = getAiProvider(cfg.providerId);
+      toast.error(`Set the API key for ${provider?.name || cfg.providerId} in Settings → AI Providers.`);
       return;
     }
     const firstMsg = (sequence.messages || [])[0];
@@ -116,7 +118,7 @@ export default function SimulateChatModal({
           project
         );
         const lang = project.language || 'en';
-        const opener = await generateMessage(firstMsg, varMap, apiKey, lang);
+        const opener = await generateMessage(firstMsg, varMap, {}, lang);
         pushTurns([{ role: 'sdr', text: opener }], project.sdrWorkflowId);
       } catch (err) {
         toast.error('Seeding failed: ' + err.message);

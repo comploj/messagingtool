@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getApiKey } from '../utils/storage';
+import { getApiKey, getDefaultMessageModel, getAiProvider } from '../utils/storage';
 import { scrapeValueProposition, extractVpFromText, scrapeCompanyInfo, buildVarMap, generateMessage, callClaude, generateICP, composeValueProposition } from '../utils/ai';
 import { extractTextFromFiles } from '../utils/documentText';
 import { switchSequenceLanguage } from '../utils/defaults';
@@ -208,8 +208,22 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
   };
 
   const handleGenerate = async () => {
-    const ctx = getAiCtx();
-    if (!ctx) { toast.error('Set your Anthropic API key in Settings first'); return; }
+    // Message generation goes through the configured default provider.
+    // In share mode we proxy via the server with the share token; logged-in
+    // users dispatch directly and need the key for the *selected* provider.
+    let ctx;
+    if (shareMode && shareToken) {
+      ctx = { shareToken };
+    } else {
+      const cfg = getDefaultMessageModel();
+      const apiKey = getApiKey(cfg.providerId);
+      if (!apiKey) {
+        const provider = getAiProvider(cfg.providerId);
+        toast.error(`Set the API key for ${provider?.name || cfg.providerId} in Settings → AI Providers.`);
+        return;
+      }
+      ctx = {};
+    }
     const seqs = project.sequences.filter((s) => selectedSeqs.includes(s.id));
     if (seqs.length === 0) { toast.error('Select at least one sequence'); return; }
 

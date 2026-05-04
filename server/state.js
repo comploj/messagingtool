@@ -36,6 +36,11 @@ const DEFAULT_AI_PROVIDERS = [
     baseUrl: 'https://openrouter.ai/api/v1/chat/completions' },
 ];
 
+const DEFAULT_MESSAGE_MODEL = Object.freeze({
+  providerId: 'anthropic',
+  model: 'claude-sonnet-4-20250514',
+});
+
 function defaultSdrWorkflows() {
   return [{
     id: 'default-sdr',
@@ -103,6 +108,7 @@ function emptyStore() {
     customTokens: [],
     aiProviders: DEFAULT_AI_PROVIDERS.slice(),
     sdrWorkflows: defaultSdrWorkflows(),
+    defaultMessageModel: { ...DEFAULT_MESSAGE_MODEL },
     // Map of providerId -> API key. Shared across the team because anyone
     // with a valid login token already has full read access to /api/state.
     // Never surfaced via the public /share/:token endpoint.
@@ -171,6 +177,11 @@ export async function readStore() {
     if (!providerById.has(def.id)) providerById.set(def.id, def);
   }
   const aiProviders = Array.from(providerById.values());
+  const incomingDefault = parsed.defaultMessageModel;
+  const defaultMessageModel = (incomingDefault && typeof incomingDefault === 'object'
+    && incomingDefault.providerId && incomingDefault.model)
+    ? { providerId: String(incomingDefault.providerId), model: String(incomingDefault.model) }
+    : { ...DEFAULT_MESSAGE_MODEL };
   const base = {
     version: Number(parsed.version) || 0,
     projects: Array.isArray(parsed.projects) ? parsed.projects : [],
@@ -179,6 +190,7 @@ export async function readStore() {
     customTokens: Array.isArray(parsed.customTokens) ? parsed.customTokens : [],
     aiProviders,
     sdrWorkflows,
+    defaultMessageModel,
     apiKeys: (parsed.apiKeys && typeof parsed.apiKeys === 'object' && !Array.isArray(parsed.apiKeys))
       ? parsed.apiKeys
       : {},
@@ -232,6 +244,13 @@ export async function handlePutState(req, res) {
     customTokens: Array.isArray(state?.customTokens) ? state.customTokens : current.customTokens,
     aiProviders: Array.isArray(state?.aiProviders) ? state.aiProviders : current.aiProviders,
     sdrWorkflows: Array.isArray(state?.sdrWorkflows) ? state.sdrWorkflows : current.sdrWorkflows,
+    defaultMessageModel: (state?.defaultMessageModel && typeof state.defaultMessageModel === 'object'
+      && state.defaultMessageModel.providerId && state.defaultMessageModel.model)
+      ? {
+          providerId: String(state.defaultMessageModel.providerId),
+          model: String(state.defaultMessageModel.model),
+        }
+      : current.defaultMessageModel,
     apiKeys: (state?.apiKeys && typeof state.apiKeys === 'object' && !Array.isArray(state.apiKeys))
       ? state.apiKeys
       : current.apiKeys,
@@ -289,6 +308,7 @@ function stateForShare(store, project) {
     project,
     customer: customer || null,
     promptOverrides: store.promptOverrides || { strategies: {}, staticFollowups: {} },
+    defaultMessageModel: store.defaultMessageModel || { ...DEFAULT_MESSAGE_MODEL },
     version: store.version,
   };
 }
@@ -384,47 +404,92 @@ export async function processPutShareState(token, body) {
   return { ok: true, version: next.version };
 }
 
-// Forward an AI request from a share viewer through the OWNER'S Anthropic
-// key (kept on the server, never sent to the share-link recipient).
-// Body shape mirrors what the client passes to api.anthropic.com/v1/messages:
-//   { model?, max_tokens?, messages: [...], tools?: [...] }
-// Returns { status, body } where body is either Anthropic's response (on 200)
-// or an { error: ... } object.
+// Forward an AI request from a share viewer through the OWNER'S key
+// (kept on the server, never sent to the share-link recipient).
+// Body shape from the client:
+//   { providerId?, model?, max_tokens?, messages: [...], tools?: [...] }
+// providerId/model fall back to the project owner's defaultMessageModel.
+// Tools (e.g. Anthropic web_search) are only forwarded when the resolved
+// provider is Anthropic — they have no analogue elsewhere.
+// Always returns an Anthropic-shaped envelope `{ content: [{ type:'text', text }] }`
+// so the client's existing `data.content[0].text` reader keeps working,
+// regardless of which upstream was used.
 export async function processShareAi(token, body) {
   const t = String(token || '').trim();
   if (!t) return { status: 404, body: { error: 'not_found' } };
   const store = await readStore();
   const project = (store.projects || []).find((p) => p.shareToken === t);
   if (!project) return { status: 404, body: { error: 'not_found' } };
-  const apiKey = store.apiKeys?.anthropic;
-  if (!apiKey) return { status: 503, body: { error: 'owner_no_key' } };
   if (!body || typeof body !== 'object') return { status: 400, body: { error: 'bad_body' } };
   if (!Array.isArray(body.messages) || body.messages.length === 0) {
     return { status: 400, body: { error: 'bad_messages' } };
   }
-  const payload = {
-    model: body.model || 'claude-sonnet-4-20250514',
-    max_tokens: Number(body.max_tokens) || 1024,
-    messages: body.messages,
-  };
-  if (Array.isArray(body.tools) && body.tools.length > 0) payload.tools = body.tools;
+
+  const def = store.defaultMessageModel || DEFAULT_MESSAGE_MODEL;
+  const providerId = String(body.providerId || def.providerId || 'anthropic');
+  const model = String(body.model || def.model || 'claude-sonnet-4-20250514');
+  const provider = (store.aiProviders || []).find((p) => p.id === providerId)
+    || DEFAULT_AI_PROVIDERS.find((p) => p.id === providerId);
+  if (!provider) {
+    return { status: 503, body: { error: 'provider_not_configured', detail: providerId } };
+  }
+  const apiKey = store.apiKeys?.[providerId];
+  if (!apiKey) return { status: 503, body: { error: 'owner_no_key', detail: providerId } };
+
+  const maxTokens = Number(body.max_tokens) || 1024;
   try {
-    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(payload),
-    });
-    const text = await upstream.text();
-    let parsed;
-    try { parsed = JSON.parse(text); } catch { parsed = { raw: text }; }
-    if (!upstream.ok) {
-      return { status: upstream.status, body: { error: 'upstream_error', detail: parsed } };
+    if (provider.kind === 'anthropic') {
+      const payload = { model, max_tokens: maxTokens, messages: body.messages };
+      if (Array.isArray(body.tools) && body.tools.length > 0) payload.tools = body.tools;
+      const upstream = await fetch(provider.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(payload),
+      });
+      const text = await upstream.text();
+      let parsed;
+      try { parsed = JSON.parse(text); } catch { parsed = { raw: text }; }
+      if (!upstream.ok) {
+        return { status: upstream.status, body: { error: 'upstream_error', detail: parsed } };
+      }
+      return { status: 200, body: parsed };
     }
-    return { status: 200, body: parsed };
+
+    if (provider.kind === 'openai_compatible') {
+      // Map Anthropic-shaped messages to OpenAI chat-completions shape.
+      const messages = body.messages.map((m) => ({
+        role: m.role === 'assistant' ? 'assistant' : (m.role === 'system' ? 'system' : 'user'),
+        content: typeof m.content === 'string'
+          ? m.content
+          : (Array.isArray(m.content)
+            ? m.content.filter((c) => c?.type === 'text').map((c) => c.text || '').join('\n')
+            : String(m.content ?? '')),
+      }));
+      const upstream = await fetch(provider.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({ model, messages, max_tokens: maxTokens }),
+      });
+      const text = await upstream.text();
+      let parsed;
+      try { parsed = JSON.parse(text); } catch { parsed = { raw: text }; }
+      if (!upstream.ok) {
+        return { status: upstream.status, body: { error: 'upstream_error', detail: parsed } };
+      }
+      const choice = parsed?.choices?.[0];
+      const out = (choice?.message?.content ?? choice?.text ?? '').trim();
+      // Synthesise an Anthropic-shaped envelope for the client.
+      return { status: 200, body: { content: [{ type: 'text', text: out }] } };
+    }
+
+    return { status: 503, body: { error: 'unknown_provider_kind', detail: provider.kind } };
   } catch (err) {
     return { status: 502, body: { error: 'upstream_unreachable', detail: String(err?.message || err) } };
   }

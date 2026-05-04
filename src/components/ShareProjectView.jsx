@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { fetchShareState, pushShareState } from '../utils/apiClient';
-import { setPromptOverrides } from '../utils/storage';
+import { setPromptOverrides, setDefaultMessageModel } from '../utils/storage';
 import Overview from './Overview';
 import Sequences from './Sequences';
 import ThemeToggle from './ThemeToggle';
@@ -34,6 +34,11 @@ export default function ShareProjectView({ token }) {
         // (prelude/postlude wrapping at generate time) works for the viewer too.
         if (snap.promptOverrides) {
           try { setPromptOverrides(snap.promptOverrides); } catch {}
+        }
+        // Mirror the owner's default provider+model so generateMessage
+        // forwards the right body shape to the share-AI proxy.
+        if (snap.defaultMessageModel) {
+          try { setDefaultMessageModel(snap.defaultMessageModel); } catch {}
         }
         setState((prev) => {
           // Don't overwrite in-flight local edits.

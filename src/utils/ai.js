@@ -395,7 +395,36 @@ export async function generateMessage(message, varMap, ctx, lang = 'en') {
     full = `${pre}\n---\n${message.prompt}\n---\n${post}`;
   }
   const resolved = substituteVariables(full, varMap);
-  return await callClaude(resolved, ctx);
+
+  const normalized = typeof ctx === 'string' ? {} : (ctx || {});
+  const { getDefaultMessageModel, getAiProvider, getApiKey } = await import('./storage');
+  const cfg = normalized.defaultMessageModel || getDefaultMessageModel();
+
+  // Share-mode: server proxies upstream using owner's stored key + chosen provider.
+  if (normalized.shareToken) {
+    const { callShareAi } = await import('./apiClient');
+    const data = await callShareAi(normalized.shareToken, {
+      providerId: cfg.providerId,
+      model: cfg.model,
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: resolved }],
+    });
+    return data.content[0].text;
+  }
+
+  // Logged-in: always dispatch via the configured default provider.
+  const provider = getAiProvider(cfg.providerId);
+  if (!provider) throw new Error(`Provider "${cfg.providerId}" is not configured. Open Settings → AI Providers.`);
+  const apiKey = getApiKey(cfg.providerId);
+  if (!apiKey) throw new Error(`Set the API key for ${provider.name} in Settings → AI Providers.`);
+  const { callProvider } = await import('./aiProviders');
+  return await callProvider({
+    provider,
+    apiKey,
+    model: cfg.model,
+    userPrompt: resolved,
+    maxTokens: 1024,
+  });
 }
 
 // Given a prompt template and the generated output, produce segments

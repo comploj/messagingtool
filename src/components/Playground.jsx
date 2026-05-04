@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getApiKey } from '../utils/storage';
+import { getApiKey, getDefaultMessageModel, getAiProvider } from '../utils/storage';
 import { scrapeCompanyInfo, buildVarMap, generateMessage } from '../utils/ai';
 import { useToast } from './Toast';
 import MessageRow from './MessageRow';
@@ -92,16 +92,25 @@ export default function Playground({ project }) {
     }
   };
 
+  const messageGenKey = () => {
+    const cfg = getDefaultMessageModel();
+    return getApiKey(cfg.providerId);
+  };
+  const messageGenMissingMsg = () => {
+    const cfg = getDefaultMessageModel();
+    const provider = getAiProvider(cfg.providerId);
+    return `Set the API key for ${provider?.name || cfg.providerId} in Settings → AI Providers.`;
+  };
+
   const handleGenerate = async (message) => {
-    const apiKey = getApiKey();
-    if (!apiKey && message.type === 'ai') {
-      toast.error('Set your Anthropic API key in Settings first');
+    if (message.type === 'ai' && !messageGenKey()) {
+      toast.error(messageGenMissingMsg());
       return;
     }
     const varMap = buildVarMap(lead, project);
     setLoadingIds((prev) => new Set(prev).add(message.id));
     try {
-      const result = await generateMessage(message, varMap, apiKey, project?.language || 'en');
+      const result = await generateMessage(message, varMap, {}, project?.language || 'en');
       setOutputs((prev) => ({ ...prev, [message.id]: result }));
     } catch (err) {
       toast.error('Generation failed: ' + err.message);
@@ -116,9 +125,8 @@ export default function Playground({ project }) {
 
   const handleGenerateAll = async () => {
     if (!selectedSeq) return;
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      toast.error('Set your Anthropic API key in Settings first');
+    if (!messageGenKey()) {
+      toast.error(messageGenMissingMsg());
       return;
     }
     setGeneratingAll(true);
@@ -126,7 +134,7 @@ export default function Playground({ project }) {
       const varMap = buildVarMap(lead, project);
       setLoadingIds((prev) => new Set(prev).add(msg.id));
       try {
-        const result = await generateMessage(msg, varMap, apiKey, project?.language || 'en');
+        const result = await generateMessage(msg, varMap, {}, project?.language || 'en');
         setOutputs((prev) => ({ ...prev, [msg.id]: result }));
       } catch (err) {
         toast.error(`Failed on ${msg.label}: ${err.message}`);
