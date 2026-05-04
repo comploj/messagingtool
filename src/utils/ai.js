@@ -7,7 +7,19 @@ const CORS_PROXIES = [
   { url: (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`, format: 'json' },
 ];
 
-export async function callClaude(prompt, apiKey, maxTokens = 1024) {
+// Auth context for AI calls — either the user's own key (logged-in flow,
+// direct browser → Anthropic) or a share token (browser → server proxy
+// using the owner's stored key). All helpers in this file thread `ctx`
+// through unchanged so call sites only think about it once. A bare string
+// is also accepted for backwards compatibility with older callers that
+// pass an Anthropic key directly.
+async function dispatchAnthropic(ctx, body) {
+  const normalized = typeof ctx === 'string' ? { apiKey: ctx } : (ctx || {});
+  if (normalized.shareToken) {
+    const { callShareAi } = await import('./apiClient');
+    return callShareAi(normalized.shareToken, body);
+  }
+  const apiKey = normalized.apiKey ?? '';
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
@@ -16,41 +28,31 @@ export async function callClaude(prompt, apiKey, maxTokens = 1024) {
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`API error ${res.status}: ${err}`);
   }
-  const data = await res.json();
+  return res.json();
+}
+
+export async function callClaude(prompt, ctx, maxTokens = 1024) {
+  const data = await dispatchAnthropic(ctx, {
+    model: MODEL,
+    max_tokens: maxTokens,
+    messages: [{ role: 'user', content: prompt }],
+  });
   return data.content[0].text;
 }
 
-export async function callClaudeWithWebSearch(prompt, apiKey, maxTokens = 2048, maxUses = 3) {
-  const res = await fetch(ANTHROPIC_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses }],
-      messages: [{ role: 'user', content: prompt }],
-    }),
+export async function callClaudeWithWebSearch(prompt, ctx, maxTokens = 2048, maxUses = 3) {
+  const data = await dispatchAnthropic(ctx, {
+    model: MODEL,
+    max_tokens: maxTokens,
+    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses }],
+    messages: [{ role: 'user', content: prompt }],
   });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`API error ${res.status}: ${err}`);
-  }
-  const data = await res.json();
   return data.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
 }
 
@@ -142,7 +144,7 @@ export async function searchCompanyInfo(domain) {
   return null;
 }
 
-export async function scrapeCompanyInfo(url, apiKey, lang = 'en') {
+export async function scrapeCompanyInfo(url, ctx, lang = 'en') {
   let text = await scrapeWebsite(url);
   let source = 'website';
   const langInstr = lang === 'de' ? 'Write ALL field values in German.' : 'Write ALL field values in English.';
@@ -171,7 +173,7 @@ If you don't know the company, make reasonable inferences from the domain name a
 
 Return ONLY the JSON object, no markdown, no explanation.`;
 
-    const response = await callClaude(prompt, apiKey);
+    const response = await callClaude(prompt, ctx);
     try {
       return JSON.parse(response);
     } catch {
@@ -197,7 +199,7 @@ ${text}
 
 Return ONLY the JSON object, no markdown, no explanation.`;
 
-  const response = await callClaude(prompt, apiKey);
+  const response = await callClaude(prompt, ctx);
   try {
     return JSON.parse(response);
   } catch {
@@ -227,7 +229,7 @@ function parseVpJson(response) {
   }
 }
 
-export async function scrapeValueProposition(url, apiKey, lang = 'en') {
+export async function scrapeValueProposition(url, ctx, lang = 'en') {
   let text = await scrapeWebsite(url);
   let source = 'website';
   const langInstr = lang === 'de' ? 'Write ALL field values in German.' : 'Write ALL field values in English.';
@@ -244,7 +246,7 @@ export async function scrapeValueProposition(url, apiKey, lang = 'en') {
 
 Return ONLY this JSON object with all fields filled in:
 ${VP_FIELDS_SCHEMA}`;
-    const response = await callClaude(prompt, apiKey, 2048);
+    const response = await callClaude(prompt, ctx, 2048);
     return parseVpJson(response);
   }
 
@@ -256,11 +258,11 @@ ${VP_FIELDS_SCHEMA}
 ${source === 'search' ? 'Search results' : 'Website text'}:
 ${text}`;
 
-  const response = await callClaude(prompt, apiKey, 2048);
+  const response = await callClaude(prompt, ctx, 2048);
   return parseVpJson(response);
 }
 
-export async function extractVpFromText(text, apiKey, lang = 'en') {
+export async function extractVpFromText(text, ctx, lang = 'en') {
   const langInstr = lang === 'de' ? 'Write ALL field values in German.' : 'Write ALL field values in English.';
   const prompt = `You are a business analyst. Given the following website text, extract a comprehensive value proposition. ${langInstr}
 
@@ -269,11 +271,11 @@ ${VP_FIELDS_SCHEMA}
 
 Website text:
 ${text}`;
-  const response = await callClaude(prompt, apiKey, 2048);
+  const response = await callClaude(prompt, ctx, 2048);
   return parseVpJson(response);
 }
 
-export async function generateICP(valueProposition, clientName, apiKey, lang = 'en') {
+export async function generateICP(valueProposition, clientName, ctx, lang = 'en') {
   const langInstr = lang === 'de'
     ? 'Write ALL field values in German. The position/role should be in German (e.g. "Leiter Einkauf" not "Head of Purchasing"). Prefer a real company headquartered in the DACH region (Germany, Austria, or Switzerland) when one plausibly fits the value proposition.'
     : 'Write ALL field values in English.';
@@ -319,7 +321,7 @@ Rules:
 7. All fields must be filled — no empty strings.
 8. Your FINAL message must contain ONLY the JSON object — no markdown, no commentary, no citations around the JSON.`;
 
-  const response = await callClaudeWithWebSearch(prompt, apiKey);
+  const response = await callClaudeWithWebSearch(prompt, ctx);
   let parsed;
   try {
     parsed = JSON.parse(response);
@@ -375,7 +377,7 @@ export function substituteVariables(template, varMap) {
   return result;
 }
 
-export async function generateMessage(message, varMap, apiKey, lang = 'en') {
+export async function generateMessage(message, varMap, ctx, lang = 'en') {
   if (message.type === 'static') {
     return substituteVariables(message.prompt, varMap);
   }
@@ -393,7 +395,7 @@ export async function generateMessage(message, varMap, apiKey, lang = 'en') {
     full = `${pre}\n---\n${message.prompt}\n---\n${post}`;
   }
   const resolved = substituteVariables(full, varMap);
-  return await callClaude(resolved, apiKey);
+  return await callClaude(resolved, ctx);
 }
 
 // Given a prompt template and the generated output, produce segments

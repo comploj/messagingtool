@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { processAuth, readStore, writeStore, processShare, processGetShareState, processPutShareState } from './server/state.js'
+import { processAuth, readStore, writeStore, processShare, processGetShareState, processPutShareState, processShareAi } from './server/state.js'
 
 async function readJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -65,10 +65,19 @@ export default defineConfig({
         });
 
         server.middlewares.use('/api/share', async (req, res) => {
-          // req.url after this mount: /:token or /:token/state
+          // req.url after this mount: /:token, /:token/state, or /:token/ai
           const path = (req.url || '').split('?')[0];
           const stateMatch = path.match(/^\/([^/]+)\/state\/?$/);
+          const aiMatch = path.match(/^\/([^/]+)\/ai\/?$/);
           const rootMatch = path.match(/^\/([^/]+)\/?$/);
+          if (aiMatch) {
+            if (req.method !== 'POST') return sendJson(res, 405, { error: 'method_not_allowed' });
+            const token = decodeURIComponent(aiMatch[1]).trim();
+            let body;
+            try { body = await readJsonBody(req); } catch { return sendJson(res, 400, { error: 'bad_json' }); }
+            const result = await processShareAi(token, body);
+            return sendJson(res, result.status, result.body);
+          }
           if (stateMatch) {
             const token = decodeURIComponent(stateMatch[1]).trim();
             if (req.method === 'GET') {
@@ -123,6 +132,9 @@ export default defineConfig({
               customTokens: Array.isArray(state?.customTokens) ? state.customTokens : current.customTokens,
               aiProviders: Array.isArray(state?.aiProviders) ? state.aiProviders : current.aiProviders,
               sdrWorkflows: Array.isArray(state?.sdrWorkflows) ? state.sdrWorkflows : current.sdrWorkflows,
+              apiKeys: (state?.apiKeys && typeof state.apiKeys === 'object' && !Array.isArray(state.apiKeys))
+                ? state.apiKeys
+                : current.apiKeys,
             };
             await writeStore(next);
             sendJson(res, 200, { ok: true, version: next.version });

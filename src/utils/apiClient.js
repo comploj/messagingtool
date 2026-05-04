@@ -41,6 +41,29 @@ export async function fetchShareState(token) {
   return res.json();
 }
 
+// Forward an AI request through the share-token proxy. The owner's key
+// stays on the server; the share viewer never sees it.
+// `body` matches the Anthropic /v1/messages payload: { messages, max_tokens, tools? }.
+// Throws an Error tagged with .ownerNoKey when the owner has not configured a key.
+export async function callShareAi(token, body) {
+  const res = await fetch('/api/share/' + encodeURIComponent(token) + '/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 503) {
+    const err = new Error('owner_no_key');
+    err.ownerNoKey = true;
+    throw err;
+  }
+  if (res.status === 404) throw new Error('share_not_found');
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`API error ${res.status}: ${detail}`);
+  }
+  return res.json();
+}
+
 // Push a project update under a share token.
 // Returns { ok, version } on success or { conflict, current } on 409.
 export async function pushShareState(token, project, baseVersion) {

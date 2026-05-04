@@ -6,7 +6,19 @@ import SequenceEditor from './SequenceEditor';
 import HighlightedTextarea from './HighlightedTextarea';
 import { useToast } from './Toast';
 
-export default function Sequences({ project, updateProject, shareMode = false }) {
+export default function Sequences({ project, updateProject, shareMode = false, shareToken = null }) {
+  // Mirror Overview's helper — share viewers proxy through the server with
+  // the owner's stored key; logged-in users hit Anthropic with their own.
+  const getAiCtx = () => {
+    if (shareMode && shareToken) return { shareToken };
+    const apiKey = getApiKey();
+    if (!apiKey) return null;
+    return { apiKey };
+  };
+  const aiErrorMessage = (err) => {
+    if (err && err.ownerNoKey) return 'The owner has not set up an Anthropic API key yet';
+    return err?.message || 'Unknown error';
+  };
   const [editingId, setEditingId] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
@@ -106,8 +118,8 @@ export default function Sequences({ project, updateProject, shareMode = false })
   };
 
   const handleRegenerateSeq = async (seq) => {
-    const apiKey = getApiKey();
-    if (!apiKey) {
+    const ctx = getAiCtx();
+    if (!ctx) {
       toast.error('Set your Anthropic API key in Settings first');
       return;
     }
@@ -117,11 +129,11 @@ export default function Sequences({ project, updateProject, shareMode = false })
     const currentOutputs = { ...(project.outputs || {}) };
     for (const msg of seq.messages) {
       try {
-        const result = await generateMessage(msg, varMap, apiKey, project.language || 'en');
+        const result = await generateMessage(msg, varMap, ctx, project.language || 'en');
         currentOutputs[msg.id] = result;
         updateProject({ outputs: { ...currentOutputs } });
       } catch (err) {
-        toast.error(`Failed: ${msg.label}: ${err.message}`);
+        toast.error(`Failed: ${msg.label}: ${aiErrorMessage(err)}`);
       }
       if (msg.type === 'ai') await new Promise((r) => setTimeout(r, 800));
     }
@@ -224,8 +236,8 @@ export default function Sequences({ project, updateProject, shareMode = false })
 
   const handleBulkRegenerate = async () => {
     if (selectedIds.size === 0 || bulkRegenerating) return;
-    const apiKey = getApiKey();
-    if (!apiKey) {
+    const ctx = getAiCtx();
+    if (!ctx) {
       toast.error('Set your Anthropic API key in Settings first');
       return;
     }
@@ -240,12 +252,12 @@ export default function Sequences({ project, updateProject, shareMode = false })
       setRegeneratingId(seq.id);
       for (const msg of seq.messages) {
         try {
-          const result = await generateMessage(msg, varMap, apiKey, project.language || 'en');
+          const result = await generateMessage(msg, varMap, ctx, project.language || 'en');
           currentOutputs[msg.id] = result;
           updateProject({ outputs: { ...currentOutputs } });
         } catch (err) {
           failures += 1;
-          toast.error(`Failed: ${seq.name} — ${msg.label}: ${err.message}`);
+          toast.error(`Failed: ${seq.name} — ${msg.label}: ${aiErrorMessage(err)}`);
         }
         if (msg.type === 'ai') await new Promise((r) => setTimeout(r, 800));
       }

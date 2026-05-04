@@ -215,6 +215,7 @@ export default function ShareProjectView({ token }) {
               updateProject({ deletedSequences: list.filter((s) => s.id !== seqId) });
             }}
             shareMode
+            shareToken={token}
           />
         )}
         {activeTab === 'Sequences' && (
@@ -222,6 +223,7 @@ export default function ShareProjectView({ token }) {
             project={project}
             updateProject={updateProject}
             shareMode
+            shareToken={token}
           />
         )}
       </div>

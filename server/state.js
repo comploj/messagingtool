@@ -384,6 +384,58 @@ export async function processPutShareState(token, body) {
   return { ok: true, version: next.version };
 }
 
+// Forward an AI request from a share viewer through the OWNER'S Anthropic
+// key (kept on the server, never sent to the share-link recipient).
+// Body shape mirrors what the client passes to api.anthropic.com/v1/messages:
+//   { model?, max_tokens?, messages: [...], tools?: [...] }
+// Returns { status, body } where body is either Anthropic's response (on 200)
+// or an { error: ... } object.
+export async function processShareAi(token, body) {
+  const t = String(token || '').trim();
+  if (!t) return { status: 404, body: { error: 'not_found' } };
+  const store = await readStore();
+  const project = (store.projects || []).find((p) => p.shareToken === t);
+  if (!project) return { status: 404, body: { error: 'not_found' } };
+  const apiKey = store.apiKeys?.anthropic;
+  if (!apiKey) return { status: 503, body: { error: 'owner_no_key' } };
+  if (!body || typeof body !== 'object') return { status: 400, body: { error: 'bad_body' } };
+  if (!Array.isArray(body.messages) || body.messages.length === 0) {
+    return { status: 400, body: { error: 'bad_messages' } };
+  }
+  const payload = {
+    model: body.model || 'claude-sonnet-4-20250514',
+    max_tokens: Number(body.max_tokens) || 1024,
+    messages: body.messages,
+  };
+  if (Array.isArray(body.tools) && body.tools.length > 0) payload.tools = body.tools;
+  try {
+    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(payload),
+    });
+    const text = await upstream.text();
+    let parsed;
+    try { parsed = JSON.parse(text); } catch { parsed = { raw: text }; }
+    if (!upstream.ok) {
+      return { status: upstream.status, body: { error: 'upstream_error', detail: parsed } };
+    }
+    return { status: 200, body: parsed };
+  } catch (err) {
+    return { status: 502, body: { error: 'upstream_unreachable', detail: String(err?.message || err) } };
+  }
+}
+
+export async function handleShareAi(req, res) {
+  const token = String(req.params?.token || '').trim();
+  const result = await processShareAi(token, req.body);
+  res.status(result.status).json(result.body);
+}
+
 // For Vite dev middleware to handle /api/share/:token without Express req/res
 export async function processShare(token) {
   const t = String(token || '').trim();

@@ -1,7 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { requireAuth, handleAuth, handleGetState, handlePutState, handleGetShare, handleGetShareState, handlePutShareState } from './server/state.js';
+import { requireAuth, handleAuth, handleGetState, handlePutState, handleGetShare, handleGetShareState, handlePutShareState, handleShareAi } from './server/state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 8080;
@@ -17,6 +17,8 @@ app.put('/api/state', requireAuth, handlePutState);
 // Public share endpoints — NO auth required. Token grants edit access to one project.
 app.get('/api/share/:token/state', handleGetShareState);
 app.put('/api/share/:token/state', handlePutShareState);
+// Server-side AI proxy — share viewers never see the owner's Anthropic key.
+app.post('/api/share/:token/ai', handleShareAi);
 // Legacy read-only snapshot endpoint — kept for old /share/:token URLs.
 app.get('/api/share/:token', handleGetShare);
 

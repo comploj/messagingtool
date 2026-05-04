@@ -19,7 +19,20 @@ function loadJson(key, fallback) {
   catch { return fallback; }
 }
 
-export default function Overview({ project, updateProject, recentlyDeletedSeqs = [], restoreDeletedSeq, purgeDeletedSeq, shareMode = false }) {
+export default function Overview({ project, updateProject, recentlyDeletedSeqs = [], restoreDeletedSeq, purgeDeletedSeq, shareMode = false, shareToken = null }) {
+  // Auth context for AI calls — share viewers proxy through the server
+  // (using the owner's stored Anthropic key); logged-in users hit Anthropic
+  // directly with their own key. Returns null if the user-flow key is missing.
+  const getAiCtx = () => {
+    if (shareMode && shareToken) return { shareToken };
+    const apiKey = getApiKey();
+    if (!apiKey) return null;
+    return { apiKey };
+  };
+  const aiErrorMessage = (err) => {
+    if (err && err.ownerNoKey) return 'The owner has not set up an Anthropic API key yet';
+    return err?.message || 'Unknown error';
+  };
   const [scraping, setScraping] = useState(false);
   const [scrapingCompany, setScrapingCompany] = useState(false);
   const lead = project.lead || emptyLead;
@@ -53,36 +66,36 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
   };
 
   const handleScrapeVP = async () => {
-    const apiKey = getApiKey();
-    if (!apiKey) { toast.error('Set your Anthropic API key in Settings first'); return; }
+    const ctx = getAiCtx();
+    if (!ctx) { toast.error('Set your Anthropic API key in Settings first'); return; }
     if (!project.clientWebsite) { toast.error('Enter a website URL first'); return; }
     setScraping(true);
     try {
-      const vp = await scrapeValueProposition(project.clientWebsite, apiKey, lang);
+      const vp = await scrapeValueProposition(project.clientWebsite, ctx, lang);
       updateProject({ valueProposition: vp });
       toast.success('Value proposition extracted');
     } catch (err) {
-      toast.error('Scrape failed: ' + err.message);
+      toast.error('Scrape failed: ' + aiErrorMessage(err));
     } finally {
       setScraping(false);
     }
   };
 
   const handlePasteSubmit = async () => {
-    const apiKey = getApiKey();
-    if (!apiKey) { toast.error('Set your Anthropic API key in Settings first'); return; }
+    const ctx = getAiCtx();
+    if (!ctx) { toast.error('Set your Anthropic API key in Settings first'); return; }
     if (!pasteText.trim()) { toast.error('Paste some content first'); return; }
     setPasteProcessing(true);
     try {
       const text = pasteText.trim().slice(0, 6000);
       if (pasteModal === 'vp') {
-        const vp = await extractVpFromText(text, apiKey, lang);
+        const vp = await extractVpFromText(text, ctx, lang);
         updateProject({ valueProposition: vp });
         toast.success('Value proposition extracted');
       } else {
         const langInstr = lang === 'de' ? 'Write ALL field values in German.' : 'Write ALL field values in English.';
         const prompt = `You are a data extraction assistant. Given the following website text, extract company information and return ONLY a valid JSON object with these fields:\n- "companyName": The official company name as used on the website (not the URL or a product line) — required\n- "companyDescription": A 2-3 sentence description of what the company does\n- "industry": The company's industry\n- "size": Estimated company size (e.g. "10-50 employees", "Enterprise", "Startup") — use "Unknown" if not clear\n- "location": Company headquarters location — use "Unknown" if not clear\n- "targetCustomers": Who their target customers are\n- "keyProblems": What key problems they solve\n\n${langInstr}\n\nWebsite text:\n${text}\n\nReturn ONLY the JSON object, no markdown, no explanation.`;
-        const response = await callClaude(prompt, apiKey);
+        const response = await callClaude(prompt, ctx);
         let info;
         try { info = JSON.parse(response); } catch {
           const match = response.match(/\{[\s\S]*\}/);
@@ -102,26 +115,26 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
       setPasteModal(null);
       setPasteText('');
     } catch (err) {
-      toast.error('Processing failed: ' + err.message);
+      toast.error('Processing failed: ' + aiErrorMessage(err));
     } finally {
       setPasteProcessing(false);
     }
   };
 
   const handleUploadDocuments = async (files) => {
-    const apiKey = getApiKey();
-    if (!apiKey) { toast.error('Set your Anthropic API key in Settings first'); return; }
+    const ctx = getAiCtx();
+    if (!ctx) { toast.error('Set your Anthropic API key in Settings first'); return; }
     if (!files || files.length === 0) return;
     setExtractingDocs(true);
     try {
       const { text, truncated } = await extractTextFromFiles(files);
       if (!text.trim()) throw new Error('No readable text in the selected file(s)');
       if (truncated) toast.info('Input truncated to 30k characters to keep cost predictable');
-      const vp = await extractVpFromText(text, apiKey, lang);
+      const vp = await extractVpFromText(text, ctx, lang);
       updateProject({ valueProposition: vp });
       toast.success(`Value proposition extracted from ${files.length} document${files.length === 1 ? '' : 's'}`);
     } catch (err) {
-      toast.error('Upload failed: ' + err.message);
+      toast.error('Upload failed: ' + aiErrorMessage(err));
     } finally {
       setExtractingDocs(false);
       if (docFileInputRef.current) docFileInputRef.current.value = '';
@@ -129,12 +142,12 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
   };
 
   const handleScrapeCompany = async () => {
-    const apiKey = getApiKey();
-    if (!apiKey) { toast.error('Set your Anthropic API key in Settings first'); return; }
+    const ctx = getAiCtx();
+    if (!ctx) { toast.error('Set your Anthropic API key in Settings first'); return; }
     if (!lead.companyWebsite) { toast.error('Enter a company website URL first'); return; }
     setScrapingCompany(true);
     try {
-      const info = await scrapeCompanyInfo(lead.companyWebsite, apiKey, lang);
+      const info = await scrapeCompanyInfo(lead.companyWebsite, ctx, lang);
       setLead((prev) => ({
         ...prev,
         company: info.companyName || prev.company,
@@ -145,15 +158,15 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
       }));
       toast.success('Company info extracted');
     } catch (err) {
-      toast.error('Scrape failed: ' + err.message);
+      toast.error('Scrape failed: ' + aiErrorMessage(err));
     } finally {
       setScrapingCompany(false);
     }
   };
 
   const handleGenerateICP = async () => {
-    const apiKey = getApiKey();
-    if (!apiKey) { toast.error('Set your Anthropic API key in Settings first'); return; }
+    const ctx = getAiCtx();
+    if (!ctx) { toast.error('Set your Anthropic API key in Settings first'); return; }
     const vpStr = composeValueProposition(project.valueProposition);
     if (!vpStr) {
       toast.error('Fill in the value proposition first (scrape or type it manually)');
@@ -161,11 +174,11 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
     }
     setGeneratingICP(true);
     try {
-      const icp = await generateICP(vpStr, project.clientName, apiKey, lang);
+      const icp = await generateICP(vpStr, project.clientName, ctx, lang);
       setLead(icp);
       toast.success('Ideal customer profile generated');
     } catch (err) {
-      toast.error('ICP generation failed: ' + err.message);
+      toast.error('ICP generation failed: ' + aiErrorMessage(err));
     } finally {
       setGeneratingICP(false);
     }
@@ -189,8 +202,8 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
   };
 
   const handleGenerate = async () => {
-    const apiKey = getApiKey();
-    if (!apiKey) { toast.error('Set your Anthropic API key in Settings first'); return; }
+    const ctx = getAiCtx();
+    if (!ctx) { toast.error('Set your Anthropic API key in Settings first'); return; }
     const seqs = project.sequences.filter((s) => selectedSeqs.includes(s.id));
     if (seqs.length === 0) { toast.error('Select at least one sequence'); return; }
 
@@ -206,11 +219,11 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
         count++;
         setGenProgress(`${count}/${total} — ${seq.name}: ${msg.label}`);
         try {
-          const result = await generateMessage(msg, varMap, apiKey, lang);
+          const result = await generateMessage(msg, varMap, ctx, lang);
           outputs[msg.id] = result;
           updateProject({ outputs: { ...outputs } });
         } catch (err) {
-          toast.error(`Failed: ${seq.name} > ${msg.label}: ${err.message}`);
+          toast.error(`Failed: ${seq.name} > ${msg.label}: ${aiErrorMessage(err)}`);
         }
         if (msg.type === 'ai') {
           await new Promise((r) => setTimeout(r, 800));
