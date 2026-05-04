@@ -3,6 +3,7 @@ import { getApiKey } from '../utils/storage';
 import { scrapeValueProposition, extractVpFromText, scrapeCompanyInfo, buildVarMap, generateMessage, callClaude, generateICP, composeValueProposition } from '../utils/ai';
 import { extractTextFromFiles } from '../utils/documentText';
 import { switchSequenceLanguage } from '../utils/defaults';
+import { isStrategyDefaultSelected } from '../utils/promptOverrides';
 import { useToast } from './Toast';
 
 const emptyLead = {
@@ -40,8 +41,13 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
     const nextLead = typeof updater === 'function' ? updater(lead) : updater;
     updateProject({ lead: nextLead });
   };
-  const [selectedSeqs, setSelectedSeqs] = useState(
-    () => loadJson(SELECTED_SEQS_KEY(project.id), project.sequences.map((s) => s.id))
+  const [selectedSeqs, setSelectedSeqs] = useState(() =>
+    loadJson(
+      SELECTED_SEQS_KEY(project.id),
+      project.sequences
+        .filter((s) => !s.strategyKey || isStrategyDefaultSelected(s.strategyKey))
+        .map((s) => s.id)
+    )
   );
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState('');

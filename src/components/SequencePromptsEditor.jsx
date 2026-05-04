@@ -33,6 +33,7 @@ function buildInitialDraft() {
     strategies[key] = {
       custom: isCustomStrategy(key),
       delayDays: en.delayDays,
+      defaultSelected: en.defaultSelected,
       en: { displayName: en.displayName, description: en.description, prompt: en.prompt },
       de: { displayName: de.displayName, description: de.description, prompt: de.prompt },
     };
@@ -111,6 +112,7 @@ export default function SequencePromptsEditor() {
         overrides.strategies[key] = {
           ...(s.custom ? { custom: true } : {}),
           delayDays: Number(s.delayDays) || 1,
+          defaultSelected: s.defaultSelected !== false,
           en: { displayName: s.en.displayName, description: s.en.description, prompt: s.en.prompt },
           de: { displayName: s.de.displayName, description: s.de.description, prompt: s.de.prompt },
         };
@@ -137,6 +139,7 @@ export default function SequencePromptsEditor() {
     const entry = {
       custom: true,
       delayDays,
+      defaultSelected: true,
       en: { displayName: name, description: newForm.description, prompt },
       de: { displayName: name, description: newForm.description, prompt },
     };
@@ -160,6 +163,7 @@ export default function SequencePromptsEditor() {
         overrides.strategies[k] = {
           ...(s.custom ? { custom: true } : {}),
           delayDays: Number(s.delayDays) || 1,
+          defaultSelected: s.defaultSelected !== false,
           en: { displayName: s.en.displayName, description: s.en.description, prompt: s.en.prompt },
           de: { displayName: s.de.displayName, description: s.de.description, prompt: s.de.prompt },
         };
@@ -332,10 +336,25 @@ export default function SequencePromptsEditor() {
         return (
           <div key={key} style={{ marginBottom: 8, border: '1px solid var(--border)', borderRadius: 6 }}>
             <div
-              style={{ padding: 10, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              style={{ padding: 10, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}
               onClick={() => toggleExpand(key)}
             >
-              <strong>{headerName}</strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                <label
+                  className="seq-checkbox"
+                  onClick={(e) => e.stopPropagation()}
+                  title="Tick by default in Generate Messages"
+                  style={{ margin: 0 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={s.defaultSelected !== false}
+                    onChange={(e) => updateStrategy(key, { defaultSelected: e.target.checked })}
+                  />
+                  <span>Pre-select</span>
+                </label>
+                <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{headerName}</strong>
+              </div>
               <span className="text-secondary text-sm">{isOpen ? '▼' : '▶'} {key !== headerName && `(${key})`}</span>
             </div>
             {isOpen && (

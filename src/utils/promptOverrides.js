@@ -161,7 +161,15 @@ export function getEffectiveStrategy(key, lang) {
     description: langOv.description ?? factory.description ?? '',
     prompt: langOv.prompt ?? factory.prompt ?? '',
     delayDays: stratOv.delayDays ?? DEFAULT_FIRST_MESSAGE_DELAY,
+    defaultSelected: stratOv.defaultSelected !== false,
   };
+}
+
+// Whether the strategy is pre-selected by default in the Generate Messages
+// panel. Defaults to true when the override is unset.
+export function isStrategyDefaultSelected(key) {
+  const o = loadOverrides();
+  return o.strategies?.[key]?.defaultSelected !== false;
 }
 
 export function getEffectiveStrategyKeys() {
