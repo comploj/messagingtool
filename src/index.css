@@ -1027,8 +1027,6 @@ select {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 200px;
-  overflow-y: auto;
 }
 .prompt-view-template {
   background: rgba(255, 255, 255, 0.02);
@@ -1040,8 +1038,6 @@ select {
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 300px;
-  overflow-y: auto;
 }
 
 /* ===== SCROLLBAR ===== */

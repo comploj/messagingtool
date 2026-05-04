@@ -50,6 +50,15 @@ export default function HighlightedTextarea({
   // Re-sync scroll whenever the value changes (e.g. programmatic set).
   useEffect(() => { syncScroll(); }, [value, syncScroll]);
 
+  // Auto-grow the textarea to fit its content. The mirror is absolutely
+  // positioned with inset:0, so it follows.
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+  }, [value]);
+
   const wrapperStyle = {
     position: 'relative',
     ...style,
