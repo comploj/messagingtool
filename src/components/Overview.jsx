@@ -20,6 +20,44 @@ function loadJson(key, fallback) {
   catch { return fallback; }
 }
 
+const VP_SECTION_HEADERS = [
+  { key: 'summary', patterns: [/^summary$/i, /^zusammenfassung$/i, /^überblick$/i, /^uberblick$/i] },
+  { key: 'elevatorPitch', patterns: [/^elevator[\s-]*pitch$/i, /^pitch$/i] },
+  { key: 'painPoints', patterns: [/^pain[\s-]*points?$/i, /^problemstellungen?$/i, /^schmerzpunkte?$/i] },
+  { key: 'usps', patterns: [/^usps?$/i, /^unique[\s-]*selling[\s-]*propositions?$/i, /^alleinstellungsmerkmale?$/i] },
+  { key: 'urgency', patterns: [/^urgency$/i, /^dringlichkeit$/i] },
+  { key: 'services', patterns: [/^services$/i, /^leistungen$/i, /^dienstleistungen$/i] },
+  { key: 'benefits', patterns: [/^benefits$/i, /^vorteile?$/i, /^nutzen$/i] },
+];
+
+function parseVpSections(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const sections = {};
+  let currentKey = null;
+  let buffer = [];
+  const flush = () => {
+    if (currentKey !== null) {
+      const value = buffer.join('\n').replace(/^\s*\n+/, '').replace(/\n+\s*$/, '');
+      if (value) sections[currentKey] = value;
+    }
+  };
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const matched = trimmed
+      ? VP_SECTION_HEADERS.find((h) => h.patterns.some((p) => p.test(trimmed)))
+      : null;
+    if (matched) {
+      flush();
+      currentKey = matched.key;
+      buffer = [];
+    } else {
+      buffer.push(line);
+    }
+  }
+  flush();
+  return sections;
+}
+
 export default function Overview({ project, updateProject, recentlyDeletedSeqs = [], restoreDeletedSeq, purgeDeletedSeq, shareMode = false, shareToken = null }) {
   // Auth context for AI calls — share viewers proxy through the server
   // (using the owner's stored Anthropic key); logged-in users hit Anthropic
@@ -88,17 +126,26 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
   };
 
   const handlePasteSubmit = async () => {
+    if (!pasteText.trim()) { toast.error('Paste some content first'); return; }
+    if (pasteModal === 'vp') {
+      const current = typeof project.valueProposition === 'string'
+        ? { summary: project.valueProposition, elevatorPitch: '', painPoints: '', usps: '', urgency: '', services: '', benefits: '' }
+        : (project.valueProposition || {});
+      const parsed = parseVpSections(pasteText);
+      const matchedKeys = Object.keys(parsed);
+      const next = matchedKeys.length > 0 ? { ...current, ...parsed } : { ...current, summary: pasteText };
+      updateProject({ valueProposition: next });
+      toast.success(matchedKeys.length > 0 ? `Pasted ${matchedKeys.length} field${matchedKeys.length === 1 ? '' : 's'}` : 'Value proposition pasted into Summary');
+      setPasteModal(null);
+      setPasteText('');
+      return;
+    }
     const ctx = getAiCtx();
     if (!ctx) { toast.error('Set your Anthropic API key in Settings first'); return; }
-    if (!pasteText.trim()) { toast.error('Paste some content first'); return; }
     setPasteProcessing(true);
     try {
       const text = pasteText.trim().slice(0, 6000);
-      if (pasteModal === 'vp') {
-        const vp = await extractVpFromText(text, ctx, lang);
-        updateProject({ valueProposition: vp });
-        toast.success('Value proposition extracted');
-      } else {
+      {
         const langInstr = lang === 'de' ? 'Write ALL field values in German.' : 'Write ALL field values in English.';
         const prompt = `You are a data extraction assistant. Given the following website text, extract company information and return ONLY a valid JSON object with these fields:\n- "companyName": The official company name as used on the website (not the URL or a product line) — required\n- "companyDescription": A 2-3 sentence description of what the company does\n- "industry": The company's industry\n- "size": Estimated company size (e.g. "10-50 employees", "Enterprise", "Startup") — use "Unknown" if not clear\n- "location": Company headquarters location — use "Unknown" if not clear\n- "targetCustomers": Who their target customers are\n- "keyProblems": What key problems they solve\n\n${langInstr}\n\nWebsite text:\n${text}\n\nReturn ONLY the JSON object, no markdown, no explanation.`;
         const response = await callClaude(prompt, ctx);
