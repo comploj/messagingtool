@@ -6,6 +6,33 @@ import SequenceEditor from './SequenceEditor';
 import HighlightedTextarea from './HighlightedTextarea';
 import { useToast } from './Toast';
 
+// Lucide-style thumb icons (mid is a thumbs-up rotated 90° to read as
+// "horizontal / maybe").
+function ThumbUpIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 10v12" />
+      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H7" />
+    </svg>
+  );
+}
+function ThumbMidIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: 'rotate(90deg)' }}>
+      <path d="M7 10v12" />
+      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H7" />
+    </svg>
+  );
+}
+function ThumbDownIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 14V2" />
+      <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H17" />
+    </svg>
+  );
+}
+
 export default function Sequences({ project, updateProject, shareMode = false, shareToken = null }) {
   // Share viewers proxy through the server (owner's stored key + chosen
   // provider). Logged-in users dispatch directly via the configured default
@@ -39,6 +66,9 @@ export default function Sequences({ project, updateProject, shareMode = false, s
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
   const [bulkRegenerating, setBulkRegenerating] = useState(false);
+  // 'all' | 'up' | 'mid' | 'down' | 'none' — filters which sequences appear in
+  // the spreadsheet, bulk actions and Excel export.
+  const [ratingFilter, setRatingFilter] = useState('all');
   const toast = useToast();
   const wrapperRef = useRef(null);
   const stickyScrollRef = useRef(null);
@@ -174,8 +204,17 @@ export default function Sequences({ project, updateProject, shareMode = false, s
     try {
       const customer = project.customerId ? getCustomer(project.customerId) : null;
       const customerName = customer?.name || project.clientName || '';
-      downloadSequencesXlsx({ project, customerName });
-      toast.success('Excel file downloaded');
+      const filtered = project.sequences.filter(matchesFilter);
+      if (filtered.length === 0) {
+        toast.error('No sequences match the current rating filter');
+        return;
+      }
+      downloadSequencesXlsx({ project: { ...project, sequences: filtered }, customerName });
+      toast.success(
+        ratingFilter === 'all'
+          ? 'Excel file downloaded'
+          : `Excel file downloaded (${filtered.length} of ${project.sequences.length} sequences)`
+      );
     } catch (err) {
       toast.error('Export failed: ' + err.message);
     }
@@ -229,10 +268,21 @@ export default function Sequences({ project, updateProject, shareMode = false, s
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === project.sequences.length) {
-      setSelectedIds(new Set());
+    const visibleIds = project.sequences.filter(matchesFilter).map((s) => s.id);
+    const allVisibleSelected =
+      visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+    if (allVisibleSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.delete(id));
+        return next;
+      });
     } else {
-      setSelectedIds(new Set(project.sequences.map((s) => s.id)));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.add(id));
+        return next;
+      });
     }
     setConfirmingBulkDelete(false);
   };
@@ -293,10 +343,37 @@ export default function Sequences({ project, updateProject, shareMode = false, s
     toast.success(`${count} sequence${count === 1 ? '' : 's'} deleted — recoverable on Overview`);
   };
 
+  const handleRate = (seqId, value) => {
+    const seqs = project.sequences.map((s) => {
+      if (s.id !== seqId) return s;
+      const current = s.rating || null;
+      const next = current === value ? null : value;
+      return { ...s, rating: next };
+    });
+    updateProject({ sequences: seqs });
+  };
+
   const editingSeq = project.sequences.find((s) => s.id === editingId);
 
-  // Find max message count across sequences
-  const maxMessages = Math.max(...project.sequences.map((s) => s.messages.length), 0);
+  const matchesFilter = (seq) => {
+    const r = seq.rating || null;
+    if (ratingFilter === 'all') return true;
+    if (ratingFilter === 'none') return r == null;
+    return r === ratingFilter;
+  };
+  const visibleSequences = project.sequences.filter(matchesFilter);
+
+  const ratingCounts = project.sequences.reduce(
+    (acc, s) => {
+      const r = s.rating || 'none';
+      acc[r] = (acc[r] || 0) + 1;
+      return acc;
+    },
+    { up: 0, mid: 0, down: 0, none: 0 }
+  );
+
+  // Find max message count across visible sequences
+  const maxMessages = Math.max(...visibleSequences.map((s) => s.messages.length), 0);
 
   return (
     <>
@@ -395,6 +472,36 @@ export default function Sequences({ project, updateProject, shareMode = false, s
             </div>
           </div>
         )}
+        <div className="seq-rating-filter">
+          <span className="seq-rating-filter-label">Filter</span>
+          {[
+            { key: 'all',  label: 'All',     count: project.sequences.length },
+            { key: 'up',   label: 'Up',      count: ratingCounts.up,   tone: 'up' },
+            { key: 'mid',  label: 'Maybe',   count: ratingCounts.mid,  tone: 'mid' },
+            { key: 'down', label: 'Down',    count: ratingCounts.down, tone: 'down' },
+            { key: 'none', label: 'Unrated', count: ratingCounts.none },
+          ].map((opt) => (
+            <button
+              key={opt.key}
+              className={`seq-rating-pill${ratingFilter === opt.key ? ' active' : ''}${opt.tone ? ' seq-rating-pill-' + opt.tone : ''}`}
+              onClick={() => setRatingFilter(opt.key)}
+              type="button"
+            >
+              {opt.tone === 'up' && <ThumbUpIcon />}
+              {opt.tone === 'mid' && <ThumbMidIcon />}
+              {opt.tone === 'down' && <ThumbDownIcon />}
+              <span>{opt.label}</span>
+              <span className="seq-rating-pill-count">{opt.count}</span>
+            </button>
+          ))}
+        </div>
+        {visibleSequences.length === 0 ? (
+          <div className="empty-state">
+            <h3>No sequences match this filter</h3>
+            <p>Choose a different rating filter to see sequences.</p>
+          </div>
+        ) : (
+        <>
         <div className="seq-sticky-scroll" ref={stickyScrollRef} onScroll={handleStickyScroll}>
           <div ref={scrollInnerRef} style={{ height: 1 }} />
         </div>
@@ -402,34 +509,69 @@ export default function Sequences({ project, updateProject, shareMode = false, s
           <div
             className="seq-spreadsheet"
             style={{
-              gridTemplateColumns: `100px repeat(${project.sequences.length}, 450px)`,
+              gridTemplateColumns: `100px repeat(${visibleSequences.length}, 450px)`,
               gridTemplateRows: `auto repeat(${maxMessages}, auto)`,
             }}
           >
             {/* Header row */}
-            <div className="seq-corner-header">
-              <input
-                type="checkbox"
-                className="seq-col-checkbox"
-                title={selectedIds.size === project.sequences.length ? 'Deselect all' : 'Select all'}
-                checked={selectedIds.size > 0 && selectedIds.size === project.sequences.length}
-                ref={(el) => {
-                  if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < project.sequences.length;
-                }}
-                onChange={toggleSelectAll}
-              />
-            </div>
-            {project.sequences.map((seq) => {
+            {(() => {
+              const visibleIds = visibleSequences.map((s) => s.id);
+              const visibleSelectedCount = visibleIds.filter((id) => selectedIds.has(id)).length;
+              const allVisibleSelected = visibleIds.length > 0 && visibleSelectedCount === visibleIds.length;
+              const someVisibleSelected = visibleSelectedCount > 0 && !allVisibleSelected;
+              return (
+                <div className="seq-corner-header">
+                  <input
+                    type="checkbox"
+                    className="seq-col-checkbox"
+                    title={allVisibleSelected ? 'Deselect all (visible)' : 'Select all (visible)'}
+                    checked={allVisibleSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someVisibleSelected;
+                    }}
+                    onChange={toggleSelectAll}
+                  />
+                </div>
+              );
+            })()}
+            {visibleSequences.map((seq) => {
               const hasDesc = !!(seq.description && seq.description.trim());
               const isSelected = selectedIds.has(seq.id);
+              const rating = seq.rating || null;
               return (
               <div
                 key={seq.id}
-                className={`seq-col-header seq-col-header-stacked${isSelected ? ' seq-col-selected' : ''}`}
+                className={`seq-col-header seq-col-header-stacked${isSelected ? ' seq-col-selected' : ''}${rating ? ' seq-col-rated seq-col-rated-' + rating : ''}`}
               >
                 <div className="seq-col-header-row">
                   <span className="seq-col-name">{seq.name}</span>
                   <div className="seq-col-actions">
+                    <div className="seq-thumbs" role="group" aria-label="Rate sequence">
+                      <button
+                        className={`seq-thumb seq-thumb-up${rating === 'up' ? ' active' : ''}`}
+                        title="Mark as wanted"
+                        onClick={() => handleRate(seq.id, 'up')}
+                        type="button"
+                      >
+                        <ThumbUpIcon />
+                      </button>
+                      <button
+                        className={`seq-thumb seq-thumb-mid${rating === 'mid' ? ' active' : ''}`}
+                        title="Mark as maybe"
+                        onClick={() => handleRate(seq.id, 'mid')}
+                        type="button"
+                      >
+                        <ThumbMidIcon />
+                      </button>
+                      <button
+                        className={`seq-thumb seq-thumb-down${rating === 'down' ? ' active' : ''}`}
+                        title="Mark as not wanted"
+                        onClick={() => handleRate(seq.id, 'down')}
+                        type="button"
+                      >
+                        <ThumbDownIcon />
+                      </button>
+                    </div>
                     <button
                       className="seq-regen-btn"
                       title="Regenerate all messages"
@@ -472,7 +614,7 @@ export default function Sequences({ project, updateProject, shareMode = false, s
               <React.Fragment key={`row-${rowIdx}`}>
                 {/* Message row */}
                 <div className="seq-row-label">Message {rowIdx + 1}</div>
-                {project.sequences.map((seq) => {
+                {visibleSequences.map((seq) => {
                   const msg = seq.messages[rowIdx];
                   if (!msg) return <div key={`${seq.id}-empty-${rowIdx}`} className="seq-cell seq-cell-empty">—</div>;
                   const output = outputs[msg.id];
@@ -504,7 +646,7 @@ export default function Sequences({ project, updateProject, shareMode = false, s
                 {rowIdx < maxMessages - 1 && (
                   <>
                     <div className="seq-delay-label">Delay</div>
-                    {project.sequences.map((seq) => {
+                    {visibleSequences.map((seq) => {
                       const nextMsg = seq.messages[rowIdx + 1];
                       if (!nextMsg) return <div key={`${seq.id}-delay-empty-${rowIdx}`} className="seq-delay-cell">—</div>;
                       return (
@@ -527,6 +669,8 @@ export default function Sequences({ project, updateProject, shareMode = false, s
             ))}
           </div>
         </div>
+        </>
+        )}
         </>
       )}
 
