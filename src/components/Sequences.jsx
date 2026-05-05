@@ -182,18 +182,32 @@ export default function Sequences({ project, updateProject, shareMode = false, s
   const handleShare = async () => {
     const token = crypto.randomUUID();
     updateProject({ shareToken: token });
-    // Wait for the server to persist the new token before handing out the
-    // URL — otherwise opening it immediately hits a 404 ("revoked").
-    try {
-      await flushSyncNow();
-    } catch (err) {
-      console.error('[share] failed to push new share token', err);
-      toast.error('Could not save share link — please try again');
-      return;
+    // Push to server, then verify the share endpoint actually resolves the
+    // new token. flushSyncNow swallows network/conflict errors internally,
+    // so we have to confirm via the public endpoint or the URL we hand out
+    // can 404 ("revoked") despite a successful-looking save.
+    let lastErr = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await flushSyncNow();
+        const res = await fetch('/api/share/' + encodeURIComponent(token) + '/state');
+        if (res.ok) {
+          const url = `${window.location.origin}/share/${token}`;
+          navigator.clipboard?.writeText(url).catch(() => {});
+          toast.success('Share link copied to clipboard');
+          return;
+        }
+        lastErr = new Error('verify_status_' + res.status);
+        // The push likely lost a 409 race or a hydrate clobbered the token.
+        // Re-stamp the token onto the local project and try again.
+        updateProject({ shareToken: token });
+      } catch (err) {
+        lastErr = err;
+      }
+      await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));
     }
-    const url = `${window.location.origin}/share/${token}`;
-    navigator.clipboard?.writeText(url).catch(() => {});
-    toast.success('Share link copied to clipboard');
+    console.error('[share] could not save share link', lastErr);
+    toast.error('Could not save share link — please try again');
   };
 
   const handleCopyShare = () => {
