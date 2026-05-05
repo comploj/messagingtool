@@ -6,29 +6,26 @@ import SequenceEditor from './SequenceEditor';
 import HighlightedTextarea from './HighlightedTextarea';
 import { useToast } from './Toast';
 
-// Lucide-style thumb icons (mid is a thumbs-up rotated 90° to read as
-// "horizontal / maybe").
+// Filled thumb icons — more recognizable than the stroke-only Lucide ones.
+// Mid is a thumbs-up rotated 90° to read as "horizontal / maybe".
 function ThumbUpIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M7 10v12" />
-      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H7" />
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M2 21h3.5V9H2v12zm19.5-9h-6.32l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.67 4l-6.59 6.59C7.71 10.95 7.5 11.45 7.5 12v8c0 1.1.9 2 2 2h7.5c.79 0 1.5-.45 1.84-1.16l3.02-7.04c.09-.23.14-.47.14-.73V12c0-.55-.45-1-1-1z" />
     </svg>
   );
 }
 function ThumbMidIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: 'rotate(90deg)' }}>
-      <path d="M7 10v12" />
-      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H7" />
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ transform: 'rotate(90deg)' }}>
+      <path d="M2 21h3.5V9H2v12zm19.5-9h-6.32l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.67 4l-6.59 6.59C7.71 10.95 7.5 11.45 7.5 12v8c0 1.1.9 2 2 2h7.5c.79 0 1.5-.45 1.84-1.16l3.02-7.04c.09-.23.14-.47.14-.73V12c0-.55-.45-1-1-1z" />
     </svg>
   );
 }
 function ThumbDownIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 14V2" />
-      <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H17" />
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M22 3h-3.5v12H22V3zM2.5 12c0 .26.05.5.14.73l3.02 7.04C6 20.55 6.71 21 7.5 21H15c1.1 0 2-.9 2-2v-8c0-.55-.21-1.05-.58-1.41L9.83 3 9.21 3.62c-.27.27-.44.65-.44 1.06l.03.32.95 4.57H3.5c-.55 0-1 .45-1 1v1.43z" />
     </svg>
   );
 }
@@ -639,12 +636,13 @@ export default function Sequences({ project, updateProject, shareMode = false, s
                 <div className="seq-row-label">Message {rowIdx + 1}</div>
                 {visibleSequences.map((seq) => {
                   const msg = seq.messages[rowIdx];
-                  if (!msg) return <div key={`${seq.id}-empty-${rowIdx}`} className="seq-cell seq-cell-empty">—</div>;
+                  const ratingClass = seq.rating ? ` seq-cell-rated seq-cell-rated-${seq.rating}` : '';
+                  if (!msg) return <div key={`${seq.id}-empty-${rowIdx}`} className={`seq-cell seq-cell-empty${ratingClass}`}>—</div>;
                   const output = outputs[msg.id];
                   return (
                     <div
                       key={msg.id}
-                      className={`seq-cell ${output ? 'seq-cell-filled' : ''}`}
+                      className={`seq-cell ${output ? 'seq-cell-filled' : ''}${ratingClass}`}
                       onClick={() => setPromptModal({ seqId: seq.id, message: msg, seqName: seq.name, output })}
                     >
                       <div className="seq-cell-badges">
@@ -671,9 +669,10 @@ export default function Sequences({ project, updateProject, shareMode = false, s
                     <div className="seq-delay-label">Delay</div>
                     {visibleSequences.map((seq) => {
                       const nextMsg = seq.messages[rowIdx + 1];
-                      if (!nextMsg) return <div key={`${seq.id}-delay-empty-${rowIdx}`} className="seq-delay-cell">—</div>;
+                      const ratingClass = seq.rating ? ` seq-cell-rated seq-cell-rated-${seq.rating}` : '';
+                      if (!nextMsg) return <div key={`${seq.id}-delay-empty-${rowIdx}`} className={`seq-delay-cell${ratingClass}`}>—</div>;
                       return (
-                        <div key={`${seq.id}-delay-${rowIdx}`} className="seq-delay-cell">
+                        <div key={`${seq.id}-delay-${rowIdx}`} className={`seq-delay-cell${ratingClass}`}>
                           <input
                             className="input seq-delay-input"
                             type="number"
