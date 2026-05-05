@@ -419,7 +419,7 @@ export default function Overview({ project, updateProject, recentlyDeletedSeqs =
         <div className="vp-header">
           <h3>Lead Information</h3>
           <button className="btn btn-secondary btn-sm" onClick={handleGenerateICP} disabled={generatingICP}>
-            {generatingICP ? <><span className="spinner spinner-sm"></span> Generating...</> : 'Generate ICP'}
+            {generatingICP ? <><span className="spinner spinner-sm"></span> Generating...</> : 'Populate with random profile from ICP'}
           </button>
         </div>
         <div className="overview-grid" style={{ marginBottom: 0 }}>
