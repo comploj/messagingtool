@@ -75,6 +75,18 @@ export function scheduleSync() {
   syncTimer = setTimeout(flushSync, 300);
 }
 
+// Force the pending debounced sync to run now and resolve when the server
+// has acknowledged. Used when the next user-visible step depends on the
+// server already knowing about the change (e.g. handing out a /share/:token
+// URL whose token only just appeared in localStorage).
+export async function flushSyncNow() {
+  clearTimeout(syncTimer);
+  while (syncing) {
+    await new Promise((r) => setTimeout(r, 30));
+  }
+  await flushSync();
+}
+
 async function flushSync() {
   if (!getAuth()) return; // not logged in — nothing to sync
   syncing = true;

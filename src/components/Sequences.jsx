@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { diffOutputWithTemplate, buildVarMap, generateMessage } from '../utils/ai';
-import { getApiKey, getCustomer, getDefaultMessageModel, getAiProvider } from '../utils/storage';
+import { getApiKey, getCustomer, getDefaultMessageModel, getAiProvider, flushSyncNow } from '../utils/storage';
 import { downloadSequencesXlsx } from '../utils/exportSequences';
 import SequenceEditor from './SequenceEditor';
 import HighlightedTextarea from './HighlightedTextarea';
@@ -179,9 +179,18 @@ export default function Sequences({ project, updateProject, shareMode = false, s
     toast.success(`${seq.name} regenerated`);
   };
 
-  const handleShare = () => {
+  const handleShare = async () => {
     const token = crypto.randomUUID();
     updateProject({ shareToken: token });
+    // Wait for the server to persist the new token before handing out the
+    // URL — otherwise opening it immediately hits a 404 ("revoked").
+    try {
+      await flushSyncNow();
+    } catch (err) {
+      console.error('[share] failed to push new share token', err);
+      toast.error('Could not save share link — please try again');
+      return;
+    }
     const url = `${window.location.origin}/share/${token}`;
     navigator.clipboard?.writeText(url).catch(() => {});
     toast.success('Share link copied to clipboard');
