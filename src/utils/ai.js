@@ -1,3 +1,8 @@
+import { callShareAi } from './apiClient';
+import { getEffectivePrelude, getEffectivePostlude } from './promptOverrides';
+import { getDefaultMessageModel, getAiProvider, getApiKey } from './storage';
+import { callProvider } from './aiProviders';
+
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-sonnet-4-20250514';
 
@@ -16,7 +21,6 @@ const CORS_PROXIES = [
 async function dispatchAnthropic(ctx, body) {
   const normalized = typeof ctx === 'string' ? { apiKey: ctx } : (ctx || {});
   if (normalized.shareToken) {
-    const { callShareAi } = await import('./apiClient');
     return callShareAi(normalized.shareToken, body);
   }
   const apiKey = normalized.apiKey ?? '';
@@ -387,9 +391,6 @@ export async function generateMessage(message, varMap, ctx, lang = 'en') {
   if (message.hasCustomFraming) {
     full = message.prompt;
   } else {
-    // Dynamic import avoids a circular import between ai.js and promptOverrides.js
-    // at module-initialization time (storage.js → prompts.js → ai.js in some bundlers).
-    const { getEffectivePrelude, getEffectivePostlude } = await import('./promptOverrides');
     const pre = getEffectivePrelude(lang);
     const post = getEffectivePostlude(lang);
     full = `${pre}\n---\n${message.prompt}\n---\n${post}`;
@@ -397,12 +398,10 @@ export async function generateMessage(message, varMap, ctx, lang = 'en') {
   const resolved = substituteVariables(full, varMap);
 
   const normalized = typeof ctx === 'string' ? {} : (ctx || {});
-  const { getDefaultMessageModel, getAiProvider, getApiKey } = await import('./storage');
   const cfg = normalized.defaultMessageModel || getDefaultMessageModel();
 
   // Share-mode: server proxies upstream using owner's stored key + chosen provider.
   if (normalized.shareToken) {
-    const { callShareAi } = await import('./apiClient');
     const data = await callShareAi(normalized.shareToken, {
       providerId: cfg.providerId,
       model: cfg.model,
@@ -417,7 +416,6 @@ export async function generateMessage(message, varMap, ctx, lang = 'en') {
   if (!provider) throw new Error(`Provider "${cfg.providerId}" is not configured. Open Settings → AI Providers.`);
   const apiKey = getApiKey(cfg.providerId);
   if (!apiKey) throw new Error(`Set the API key for ${provider.name} in Settings → AI Providers.`);
-  const { callProvider } = await import('./aiProviders');
   return await callProvider({
     provider,
     apiKey,
