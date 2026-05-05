@@ -1,7 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { requireAuth, handleAuth, handleGetState, handlePutState, handleGetShare, handleGetShareState, handlePutShareState, handleShareAi } from './server/state.js';
+import { requireAuth, handleAuth, handleGetState, handlePutState, handleGetShare, handleGetShareState, handlePutShareState, handleShareAi, handleCreateProjectShare, handleDeleteProjectShare } from './server/state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 8080;
@@ -13,6 +13,10 @@ app.use(express.json({ limit: '4mb' }));
 app.get('/api/auth', requireAuth, handleAuth);
 app.get('/api/state', requireAuth, handleGetState);
 app.put('/api/state', requireAuth, handlePutState);
+
+// Atomic share-token issuance for an owned project. Auth required.
+app.post('/api/projects/:projectId/share', requireAuth, handleCreateProjectShare);
+app.delete('/api/projects/:projectId/share', requireAuth, handleDeleteProjectShare);
 
 // Public share endpoints — NO auth required. Token grants edit access to one project.
 app.get('/api/share/:token/state', handleGetShareState);

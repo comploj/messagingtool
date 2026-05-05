@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { processAuth, readStore, writeStore, processShare, processGetShareState, processPutShareState, processShareAi } from './server/state.js'
+import { processAuth, readStore, writeStore, processShare, processGetShareState, processPutShareState, processShareAi, processCreateProjectShare, processDeleteProjectShare } from './server/state.js'
 
 async function readJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -102,6 +102,24 @@ export default defineConfig({
             return sendJson(res, 200, snap);
           }
           sendJson(res, 404, { error: 'not_found' });
+        });
+
+        server.middlewares.use('/api/projects', async (req, res) => {
+          // Match /:projectId/share
+          const path = (req.url || '').split('?')[0];
+          const m = path.match(/^\/([^/]+)\/share\/?$/);
+          if (!m) return sendJson(res, 404, { error: 'not_found' });
+          if (!(await requireAuthRaw(req, res))) return;
+          const projectId = decodeURIComponent(m[1]).trim();
+          if (req.method === 'POST') {
+            const result = await processCreateProjectShare(projectId);
+            return sendJson(res, result.status, result.body);
+          }
+          if (req.method === 'DELETE') {
+            const result = await processDeleteProjectShare(projectId);
+            return sendJson(res, result.status, result.body);
+          }
+          sendJson(res, 405, { error: 'method_not_allowed' });
         });
 
         server.middlewares.use('/api/auth', async (req, res) => {

@@ -64,6 +64,27 @@ export async function callShareAi(token, body) {
   return res.json();
 }
 
+// Atomically issue a new share token for an owned project. Server-side
+// mutation under a single read/write — no client-side race.
+// Returns { token, version } on success. Throws on auth/network failure.
+export async function createProjectShare(projectId) {
+  const res = await fetch('/api/projects/' + encodeURIComponent(projectId) + '/share', {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('create_share_failed_' + res.status);
+  return res.json();
+}
+
+export async function deleteProjectShare(projectId) {
+  const res = await fetch('/api/projects/' + encodeURIComponent(projectId) + '/share', {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('delete_share_failed_' + res.status);
+  return res.json();
+}
+
 // Push a project update under a share token.
 // Returns { ok, version } on success or { conflict, current } on 409.
 export async function pushShareState(token, project, baseVersion) {

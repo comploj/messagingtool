@@ -87,6 +87,23 @@ export async function flushSyncNow() {
   await flushSync();
 }
 
+// Patch a project's shareToken in localStorage and bump our state version
+// to match what the server already holds. Called after the atomic
+// /api/projects/:id/share endpoint, where the server has already mutated
+// and persisted the project — we just need our local cache to reflect it
+// so the next debounced PUT doesn't push a stale projects blob over it.
+export function applyShareTokenLocal(projectId, shareToken, serverVersion) {
+  const raw = localStorage.getItem(KEYS.PROJECTS);
+  let projects;
+  try { projects = JSON.parse(raw) || []; } catch { projects = []; }
+  const idx = projects.findIndex((p) => p && p.id === projectId);
+  if (idx >= 0) {
+    projects[idx] = { ...projects[idx], shareToken: shareToken };
+    localStorage.setItem(KEYS.PROJECTS, JSON.stringify(projects));
+  }
+  if (typeof serverVersion === 'number') setStateVersion(serverVersion);
+}
+
 async function flushSync() {
   if (!getAuth()) return; // not logged in — nothing to sync
   syncing = true;

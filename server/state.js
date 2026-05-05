@@ -501,6 +501,50 @@ export async function handleShareAi(req, res) {
   res.status(result.status).json(result.body);
 }
 
+// Atomic share-token issuance / revocation. Avoids the client-side race
+// where the client writes the token to localStorage and then debounced-syncs
+// the whole projects blob — concurrent edits or hydrations could overwrite
+// the token before it reaches the server. This endpoint mutates the project
+// in place under the server's lock, so the token is guaranteed live the
+// moment the response returns.
+export async function processCreateProjectShare(projectId) {
+  const id = String(projectId || '').trim();
+  if (!id) return { status: 400, body: { error: 'bad_id' } };
+  const store = await readStore();
+  const idx = (store.projects || []).findIndex((p) => p.id === id);
+  if (idx < 0) return { status: 404, body: { error: 'not_found' } };
+  const token = (globalThis.crypto?.randomUUID?.()
+    || `tok-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`);
+  const nextProjects = [...store.projects];
+  nextProjects[idx] = { ...nextProjects[idx], shareToken: token };
+  const next = { ...store, version: store.version + 1, projects: nextProjects };
+  await writeStore(next);
+  return { status: 200, body: { token, version: next.version } };
+}
+
+export async function processDeleteProjectShare(projectId) {
+  const id = String(projectId || '').trim();
+  if (!id) return { status: 400, body: { error: 'bad_id' } };
+  const store = await readStore();
+  const idx = (store.projects || []).findIndex((p) => p.id === id);
+  if (idx < 0) return { status: 404, body: { error: 'not_found' } };
+  const nextProjects = [...store.projects];
+  nextProjects[idx] = { ...nextProjects[idx], shareToken: null };
+  const next = { ...store, version: store.version + 1, projects: nextProjects };
+  await writeStore(next);
+  return { status: 200, body: { version: next.version } };
+}
+
+export async function handleCreateProjectShare(req, res) {
+  const result = await processCreateProjectShare(req.params?.projectId);
+  res.status(result.status).json(result.body);
+}
+
+export async function handleDeleteProjectShare(req, res) {
+  const result = await processDeleteProjectShare(req.params?.projectId);
+  res.status(result.status).json(result.body);
+}
+
 // For Vite dev middleware to handle /api/share/:token without Express req/res
 export async function processShare(token) {
   const t = String(token || '').trim();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { diffOutputWithTemplate, buildVarMap, generateMessage } from '../utils/ai';
-import { getApiKey, getCustomer, getDefaultMessageModel, getAiProvider, flushSyncNow } from '../utils/storage';
+import { getApiKey, getCustomer, getDefaultMessageModel, getAiProvider, flushSyncNow, applyShareTokenLocal } from '../utils/storage';
+import { createProjectShare, deleteProjectShare } from '../utils/apiClient';
 import { downloadSequencesXlsx } from '../utils/exportSequences';
 import SequenceEditor from './SequenceEditor';
 import HighlightedTextarea from './HighlightedTextarea';
@@ -177,34 +178,23 @@ export default function Sequences({ project, updateProject, shareMode = false, s
   };
 
   const handleShare = async () => {
-    const token = crypto.randomUUID();
-    updateProject({ shareToken: token });
-    // Push to server, then verify the share endpoint actually resolves the
-    // new token. flushSyncNow swallows network/conflict errors internally,
-    // so we have to confirm via the public endpoint or the URL we hand out
-    // can 404 ("revoked") despite a successful-looking save.
-    let lastErr = null;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        await flushSyncNow();
-        const res = await fetch('/api/share/' + encodeURIComponent(token) + '/state');
-        if (res.ok) {
-          const url = `${window.location.origin}/share/${token}`;
-          navigator.clipboard?.writeText(url).catch(() => {});
-          toast.success('Share link copied to clipboard');
-          return;
-        }
-        lastErr = new Error('verify_status_' + res.status);
-        // The push likely lost a 409 race or a hydrate clobbered the token.
-        // Re-stamp the token onto the local project and try again.
-        updateProject({ shareToken: token });
-      } catch (err) {
-        lastErr = err;
-      }
-      await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));
+    // Atomic server-side issuance: avoids the localStorage→sync race where
+    // a debounced PUT or a concurrent hydrate could clobber the token before
+    // it reaches the server. The server returns the canonical token + the
+    // bumped state version, and we patch our local cache to match.
+    let result;
+    try {
+      result = await createProjectShare(project.id);
+    } catch (err) {
+      console.error('[share] create failed', err);
+      toast.error('Could not save share link — please try again');
+      return;
     }
-    console.error('[share] could not save share link', lastErr);
-    toast.error('Could not save share link — please try again');
+    applyShareTokenLocal(project.id, result.token, result.version);
+    updateProject({ shareToken: result.token });
+    const url = `${window.location.origin}/share/${result.token}`;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    toast.success('Share link copied to clipboard');
   };
 
   const handleCopyShare = () => {
@@ -214,8 +204,17 @@ export default function Sequences({ project, updateProject, shareMode = false, s
     toast.success('Share link copied');
   };
 
-  const handleRevokeShare = () => {
+  const handleRevokeShare = async () => {
     if (!confirm('Revoke the share link? Anyone with the old link will see an error page.')) return;
+    let result;
+    try {
+      result = await deleteProjectShare(project.id);
+    } catch (err) {
+      console.error('[share] revoke failed', err);
+      toast.error('Could not revoke share link — please try again');
+      return;
+    }
+    applyShareTokenLocal(project.id, null, result.version);
     updateProject({ shareToken: null });
     toast.success('Share link revoked');
   };
@@ -381,7 +380,8 @@ export default function Sequences({ project, updateProject, shareMode = false, s
     if (ratingFilter === 'none') return r == null;
     return r === ratingFilter;
   };
-  const visibleSequences = project.sequences.filter(matchesFilter);
+  const hasOutputs = (seq) => seq.messages.some((m) => outputs[m.id]);
+  const visibleSequences = project.sequences.filter((s) => matchesFilter(s) && hasOutputs(s));
 
   const ratingCounts = project.sequences.reduce(
     (acc, s) => {
